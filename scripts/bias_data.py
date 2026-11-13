@@ -30,8 +30,9 @@ import numpy as np, pandas as pd
 import scipy
 from scipy.stats import beta, fisher_exact, ks_2samp, norm
 
+from lcm_recheck.config import SCAN_COLUMNS
 from extract_runs import lines, exec_ms
-from sigtests import SCAN_COLUMNS, section, Tee
+from sigtests import section, Tee
 
 try:
     import ijson

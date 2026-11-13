@@ -10,3 +10,13 @@ dependencies = [
     "psycopg2-binary>=2.9.13",
     "scipy>=1.18.1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.8.23,<0.9"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "lcm_recheck"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]          # never collect the authors' tests under lcm-eval/

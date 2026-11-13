@@ -28,16 +28,16 @@ import numpy as np, pandas as pd
 import scipy
 from scipy.stats import binomtest
 
-from sigtests import LCMS, FINE_TUNED_LCMS, REF, PG16, SEEDS, SCAN_COLUMNS, LABEL_SOURCE, holm, section, Tee
+from lcm_recheck.config import (LCMS, FINE_TUNED_LCMS, REF, PG16, SEEDS, SCAN_COLUMNS, LABEL_SOURCE, B, BASE_SEED,
+                                SCAN_FOLDER, default_retrain_root)
+from sigtests import holm, section, Tee
 
-B = 10_000
-RNG = np.random.default_rng(0)
-FOLDER = "scan_costs_percentiles"
+RNG = np.random.default_rng(BASE_SEED)
 
 
 # ----------------------------------------------------------------------------- loading
 def read_side(root, model, db, side, col, seed):
-    f = os.path.join(root, model, db, FOLDER, f"{side}.{col}_{seed}_test_pred.csv")
+    f = os.path.join(root, model, db, SCAN_FOLDER, f"{side}.{col}_{seed}_test_pred.csv")
     if not os.path.exists(f):
         return None
     d = pd.read_csv(f)
@@ -130,7 +130,7 @@ def test2(a):
     models = [REF, PG16] + LCMS
     P, label_dev = points(a.eval_root, models, SCAN_COLUMNS)
     if P.empty or REF not in set(P.model):
-        print(f"skipped: no predictions under {a.eval_root}/<model>/<db>/{FOLDER}/")
+        print(f"skipped: no predictions under {a.eval_root}/<model>/<db>/{SCAN_FOLDER}/")
         return
     present = [m for m in models if m in set(P.model)]
     core = [m for m in [REF] + LCMS if m in present]
@@ -367,8 +367,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", help="also write the output to this file (overwritten)")
     a = ap.parse_args()
     a.eval_root = os.path.expanduser(a.eval_root)
-    a.retrain_root = os.path.expanduser(a.retrain_root or os.path.join(os.path.dirname(os.path.normpath(a.eval_root)),
-                                                                        "retraining_evaluation"))
+    a.retrain_root = os.path.expanduser(a.retrain_root or default_retrain_root(a.eval_root))
     out_file = None
     if a.out:
         os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
@@ -377,7 +376,7 @@ if __name__ == "__main__":
         print(f"# {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
         print(f"# command: python {' '.join(sys.argv)}")
         print(f"# python {platform.python_version()}, numpy {np.__version__}, pandas {pd.__version__}, "
-              f"scipy {scipy.__version__}; bootstrap seed 0, {B} resamples\n")
+              f"scipy {scipy.__version__}; bootstrap seed {BASE_SEED}, {B} resamples\n")
     try:
         if "2" in a.tests:
             test2(a)

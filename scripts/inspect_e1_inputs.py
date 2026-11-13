@@ -4,12 +4,10 @@ Usage (from MDA/):  uv run python scripts/inspect_e1_inputs.py
 """
 import glob, json, os, re
 
-W = "lcm-eval/data/workloads/evaluation/imdb"
-R = "lcm-eval/data/runs/raw/imdb"
-SQL_DIRS = {"full": f"{W}/join_order_full", "pinned": f"{W}/join_order_full_pg_10_hinted"}
-RUN_DIRS = {"pg10": f"{R}/join_order_full", "pg16": f"{R}/join_order_full_v16"}
-IDS = [int(x) for x in ("0 1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 "
-                        "35 36 37 38 41 43 44 45 46 47 49 50 51 52 53 54 55 61 62 63 64 65 66 67 68").split()]
+from lcm_recheck.config import JOB_LIGHT_IDS as IDS, SQL_FULL_DIR, SQL_PINNED_DIR, RUNS_PG10_DIR, RUNS_PG16_DIR
+
+SQL_DIRS = {"full": SQL_FULL_DIR, "pinned": SQL_PINNED_DIR}
+RUN_DIRS = {"pg10": RUNS_PG10_DIR, "pg16": RUNS_PG16_DIR}
 
 
 def norm(s):

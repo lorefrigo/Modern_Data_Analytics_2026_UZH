@@ -14,6 +14,8 @@ from collections import Counter
 import numpy as np, pandas as pd
 import psycopg2
 
+from lcm_recheck.config import PG16, PG18, JOIN_ORDER_FOLDER, PG_HOST, PG_USER, PG_PASSWORD, PG_DB, PORTS
+
 DUMP = re.compile(r"\{used hints:(.*?)\}, \{not used hints:(.*?)\}, \{duplicate hints:(.*?)\}, \{error hints:(.*?)\}",
                   re.S)
 KW = re.compile(r"([A-Za-z]+)\(")
@@ -26,9 +28,9 @@ def keywords(s):
 ap = argparse.ArgumentParser()
 ap.add_argument("--pg18", required=True); ap.add_argument("--eval_root", required=True)
 ap.add_argument("--out", default="results/pg18_hint_status.csv")
-ap.add_argument("--host", default="localhost"); ap.add_argument("--port", type=int, default=5418)
-ap.add_argument("--user", default="postgres"); ap.add_argument("--password", default="")
-ap.add_argument("--db", default="imdb")
+ap.add_argument("--host", default=PG_HOST); ap.add_argument("--port", type=int, default=PORTS[PG18])
+ap.add_argument("--user", default=PG_USER); ap.add_argument("--password", default=PG_PASSWORD)
+ap.add_argument("--db", default=PG_DB)
 a = ap.parse_args()
 
 df = pd.read_csv(a.pg18).sort_values(["query", "plan_idx"])
@@ -86,17 +88,17 @@ print("\nPer query: lines without Leading, and the plan Sc. PG16 / Sc. PG18 sele
 out = []
 for q, g in t.groupby("query"):
     row = dict(query=q, lines=len(g), no_leading=int((~g.leading_used).sum()), dup=int(g.dup_plan.sum()))
-    for model in ["postgres_16", "postgres_18"]:
-        p = os.path.join(a.eval_root, model, "imdb", "join_order_full", f"{q}_0_test_pred.csv")
+    for model in [PG16, PG18]:
+        p = os.path.join(a.eval_root, model, "imdb", JOIN_ORDER_FOLDER, f"{q}_0_test_pred.csv")
         if os.path.exists(p):
             f = pd.read_csv(p)
             row[model] = f.label.values[np.argmin(f.prediction.values)]
     out.append(row)
 o = pd.DataFrame(out)
-o["diff"] = o.get("postgres_18", np.nan) - o.get("postgres_16", np.nan)
+o["diff"] = o.get(PG18, np.nan) - o.get(PG16, np.nan)
 o["k"] = o["query"].str.split("_").str[-1].astype(int)
 show = o[(o.no_leading > 0) | (o.dup > 0) | (o["diff"].abs() > 1e-6)].sort_values("k").drop(columns="k")
 print(show.to_string(index=False, float_format=lambda x: f"{x:.2f}"))
-print(f"\ntotal selected: Sc. PG16 {o.postgres_16.sum():.1f} s, Sc. PG18 {o.postgres_18.sum():.1f} s; "
+print(f"\ntotal selected: Sc. PG16 {o[PG16].sum():.1f} s, Sc. PG18 {o[PG18].sum():.1f} s; "
       f"difference from queries without any missing Leading: "
       f"{o[o.no_leading == 0]['diff'].sum():.1f} s, from queries with missing Leading: {o[o.no_leading > 0]['diff'].sum():.1f} s")

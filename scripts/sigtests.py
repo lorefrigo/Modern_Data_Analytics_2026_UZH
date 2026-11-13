@@ -24,39 +24,11 @@ import numpy as np, pandas as pd
 import scipy
 from scipy.stats import wilcoxon, binomtest
 
-LCMS = ["flat", "mscn", "e2e", "qppnet", "query_former", "zeroshot", "dace"]
-ACT_CARD_LCMS = ["flat_act_cards", "qppnet_act_cards", "zeroshot_act_card", "dace_act_cards"]
-FINE_TUNED_LCMS = ["flat", "e2e", "query_former", "zeroshot", "dace"]          # Fig. 14
-INDEX_LCMS = ["flat", "e2e", "query_former", "zeroshot", "dace"]               # Section 6.6 / Fig. 13
-REF, PG16, LABEL_SOURCE = "postgres", "postgres_16", "flat"
-B, RNG, SEEDS = 10_000, np.random.default_rng(0), (0, 1, 2)
+from lcm_recheck.config import (LCMS, ACT_CARD_LCMS, FINE_TUNED_LCMS, INDEX_LCMS, REF, PG16, PG_VERSIONS,
+                                LABEL_SOURCE, B, BASE_SEED, SEEDS, SCAN_COLUMNS, PHYSICAL, PHYSICAL_INDEX,
+                                JOIN_ORDER_FOLDER, SCAN_FOLDER, default_retrain_root)
 
-# Workloads the authors evaluate (copied from the active entries in src/classes/workloads.py)
-SCAN_COLUMNS = {   # Task 2: Table 3 (21 columns); the IMDB columns are also used for Fig. 14
-    "imdb": ["aka_name.person_id", "cast_info.nr_order", "cast_info.movie_id", "person_info.person_id",
-             "title.episode_nr", "title.production_year"],
-    "baseball": ["batting.AB", "batting.G_batting", "halloffame.needed", "managers.L", "managers.W",
-                 "managershalf.L", "managershalf.W"],
-    "tpc_h_pk": ["lineitem.l_extendedprice", "lineitem.l_partkey", "part.p_retailprice", "part.p_size",
-                 "partsupp.ps_availqty", "partsupp.ps_partkey", "partsupp.ps_suppkey", "partsupp.ps_supplycost"]}
-_IMDB_PP = ("0 100 119 121 123 130 131 137 140 141 142 147 15 150 151 152 156 16 161 165 168 169 174 184 19 194 "
-            "196 201 206 21 210 218 221 225 231 24 240 244 246 249 250 255 256 259 262 267 27 287 29 290 298 300 "
-            "305 31 310 313 318 322 331 333 334 335 336 337 341 342 345 346 348 35 354 363 38 383 386 39 397 403 "
-            "409 411 414 415 418 43 434 436 442 443 453 467 49 54 57 61 7 77 87 89 92 99")
-_TPCH_PP = ("1001 1005 1028 103 1052 1053 1062 1066 1072 1086 1098 1122 1130 1147 1166 1177 1201 1215 1226 1234 "
-            "1243 1252 1260 1273 1303 1335 1387 1414 1428 1442 148 1499 15 1514 1524 1526 1546 1558 1563 160 163 "
-            "179 184 216 231 239 278 300 312 350 355 358 361 363 386 408 429 442 445 451 454 483 486 504 524 542 "
-            "548 557 562 577 608 618 679 703 71 710 716 722 729 743 760 766 768 774 803 813 818 822 827 86 862 88 "
-            "884 900 912 922 929 931 970 994")
-_BASE_PP = ("1003 1012 1016 1023 1030 1081 1097 1107 1108 1110 1126 1146 1171 120 1200 124 125 131 132 134 139 145 "
-            "158 180 182 185 191 196 200 211 215 217 224 226 235 237 241 264 286 287 305 319 327 328 331 365 396 40 "
-            "408 41 436 44 46 467 473 492 496 499 504 51 522 539 582 587 604 608 609 616 637 651 657 667 683 693 "
-            "700 722 729 750 751 782 81 816 861 864 87 878 891 90 903 908 918 922 936 938 952 957 969 975 980 994")
-PHYSICAL = {   # Task 3, Fig. 11: dataset -> (database folder, workload folder, query names)
-    "IMDB": ("imdb", "physical_plan", [f"scale_{i}" for i in _IMDB_PP.split()]),
-    "TPC-H": ("tpc_h_pk", "physical_plan", [f"tpc_h_{i}" for i in _TPCH_PP.split()]),
-    "Baseball": ("baseball", "physical_plan", [f"baseball_{i}" for i in _BASE_PP.split()])}
-PHYSICAL_INDEX = ("imdb", "physical_index_plan", [f"scale_{i}" for i in _IMDB_PP.split()])   # Section 6.6
+RNG = np.random.default_rng(BASE_SEED)
 
 SUMMARY = []   # every LCM-vs-PG10 verdict, collected for the final summary
 
@@ -169,7 +141,7 @@ def section(title):
 # ----------------------------------------------------------------------------- loading
 def load_preds(eval_root, model):
     """Task 1: all JOB-light prediction files of one model (all seeds)."""
-    files = glob.glob(os.path.join(eval_root, model, "imdb", "join_order_full", "job_light_*_*_test_pred.csv"))
+    files = glob.glob(os.path.join(eval_root, model, "imdb", JOIN_ORDER_FOLDER, "job_light_*_*_test_pred.csv"))
     out = []
     for f in files:
         q, seed = re.match(r"(job_light_\d+)_(\d+)_test_pred\.csv", os.path.basename(f)).groups()
@@ -213,7 +185,7 @@ def selected(df):
 # ----------------------------------------------------------------------------- Task 1: join ordering
 def task_join(a):
     section("TASK 1: JOIN ORDERING (JOB-light, IMDB) - Fig. 1, Fig. 4")
-    preds = {m: load_preds(a.eval_root, m) for m in [REF] + LCMS + [PG16, "postgres_18"] + ACT_CARD_LCMS}
+    preds = {m: load_preds(a.eval_root, m) for m in [REF] + LCMS + PG_VERSIONS + ACT_CARD_LCMS}
     preds = {m: d for m, d in preds.items() if d is not None}
     if REF not in preds:
         print(f"skipped: no Sc. PG10 predictions under {a.eval_root}/postgres/imdb/join_order_full/")
@@ -246,7 +218,7 @@ def task_join(a):
 
     # H1: selected runtime, each LCM vs Sc. PG10, paired by query
     for fam, members in {"LCM vs PG10": [x for x in LCMS if x in sel],
-                         "PG version vs PG10": [x for x in [PG16, "postgres_18"] if x in sel]}.items():
+                         "PG version vs PG10": [x for x in PG_VERSIONS if x in sel]}.items():
         if not members:
             continue
         rows = []
@@ -307,8 +279,8 @@ def access_path_scores(root, models, columns_by_db):
     deviating = set()
     for db, cols in columns_by_db.items():
         for col in cols:
-            seq = {m: load_workload(root(m), m, db, "scan_costs_percentiles", f"seq.{col}") for m in models}
-            idx = {m: load_workload(root(m), m, db, "scan_costs_percentiles", f"index.{col}") for m in models}
+            seq = {m: load_workload(root(m), m, db, SCAN_FOLDER, f"seq.{col}") for m in models}
+            idx = {m: load_workload(root(m), m, db, SCAN_FOLDER, f"index.{col}") for m in models}
             seq = {m: d for m, d in seq.items() if d is not None}
             idx = {m: d for m, d in idx.items() if d is not None}
             if REF not in seq or REF not in idx:
@@ -575,8 +547,7 @@ if __name__ == "__main__":
     a = ap.parse_args()
     if a.mode == "paper":
         a.eval_root = os.path.expanduser(a.eval_root)
-        a.retrain_root = os.path.expanduser(a.retrain_root or os.path.join(os.path.dirname(os.path.normpath(a.eval_root)),
-                                                                            "retraining_evaluation"))
+        a.retrain_root = os.path.expanduser(a.retrain_root or default_retrain_root(a.eval_root))
 
     out_file = None
     if a.out:
@@ -586,7 +557,7 @@ if __name__ == "__main__":
         print(f"# {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
         print(f"# command: python {' '.join(sys.argv)}")
         print(f"# python {platform.python_version()}, numpy {np.__version__}, pandas {pd.__version__}, "
-              f"scipy {scipy.__version__}; bootstrap seed 0\n")
+              f"scipy {scipy.__version__}; bootstrap seed {BASE_SEED}\n")
     try:
         paper(a) if a.mode == "paper" else versions(a)
     finally:

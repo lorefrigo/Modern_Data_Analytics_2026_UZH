@@ -12,6 +12,8 @@ Usage (run from the MDA folder):
 import argparse, os, sys, zipfile
 import osfclient
 
+from lcm_recheck.config import OSF_PROJECT, DATA_ROOT
+
 
 def walk(project_id):
     storage = osfclient.OSF().project(project_id).storage()   # anonymous access; the project is public
@@ -32,13 +34,13 @@ def unzip_recursively(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--project", default="rb5tn")
+    ap.add_argument("--project", default=OSF_PROJECT)
     ap.add_argument("--list", action="store_true", help="only list files and sizes")
     ap.add_argument("--save", help="with --list: also write the listing to this TSV file")
     ap.add_argument("--match", action="append", default=[], help="substring the path must contain (repeatable)")
     ap.add_argument("--any", action="append", default=[],
                     help="substring of which at least one must occur (repeatable; combined with --match)")
-    ap.add_argument("--dest", default="lcm-eval/data", help="download root (same layout as the repo expects)")
+    ap.add_argument("--dest", default=DATA_ROOT, help="download root (same layout as the repo expects)")
     ap.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     ap.add_argument("--no_unzip", action="store_true", help="keep .zip files as downloaded")
     a = ap.parse_args()

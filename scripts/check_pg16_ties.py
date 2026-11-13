@@ -13,6 +13,8 @@ Usage (from MDA/):
 import argparse, os
 import numpy as np, pandas as pd
 
+from lcm_recheck.config import PG_VERSIONS, JOIN_ORDER_FOLDER
+
 
 def leading(s):
     i = s.find("Leading(")
@@ -29,7 +31,7 @@ def leading(s):
 ap = argparse.ArgumentParser()
 ap.add_argument("--pg10", required=True); ap.add_argument("--pg18", required=True)
 ap.add_argument("--status", required=True); ap.add_argument("--eval_root", required=True)
-ap.add_argument("--models", nargs="+", default=["postgres_16", "postgres_18"])
+ap.add_argument("--models", nargs="+", default=PG_VERSIONS)
 a = ap.parse_args()
 
 pg10, pg18 = pd.read_csv(a.pg10), pd.read_csv(a.pg18)
@@ -47,7 +49,7 @@ for q in sorted(pg18["query"].unique(), key=lambda s: int(s.split("_")[-1])):
     broken = ~d.leading_used.values
     row = dict(query=q, rows=len(d), broken=int(broken.sum()))
     for m in a.models:
-        f = pd.read_csv(os.path.join(a.eval_root, m, "imdb", "join_order_full", f"{q}_0_test_pred.csv"))
+        f = pd.read_csv(os.path.join(a.eval_root, m, "imdb", JOIN_ORDER_FOLDER, f"{q}_0_test_pred.csv"))
         if len(f) != len(d):
             row[f"{m}_note"] = "row count differs"; continue
         p = pd.Series(np.round(f.prediction.values, 9))

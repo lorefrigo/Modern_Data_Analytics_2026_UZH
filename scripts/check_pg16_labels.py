@@ -11,6 +11,8 @@ Usage (from MDA/):
 import argparse, os
 import numpy as np, pandas as pd
 
+from lcm_recheck.config import REF, PG16, JOIN_ORDER_FOLDER
+
 ap = argparse.ArgumentParser()
 ap.add_argument("--pg10", required=True); ap.add_argument("--pg16", required=True)
 ap.add_argument("--eval_root", required=True)
@@ -37,8 +39,8 @@ def candidates(q, labels_from, keep):
     return d[(d["query"] == q) & d.plan_idx.isin(idx)].sort_values("plan_idx")
 
 
-for model in ["postgres", "postgres_16"]:
-    folder = os.path.join(a.eval_root, model, "imdb", "join_order_full")
+for model in [REF, PG16]:
+    folder = os.path.join(a.eval_root, model, "imdb", JOIN_ORDER_FOLDER)
     queries = sorted(runs["pg10"]["query"].unique(), key=lambda s: int(s.split("_")[-1]))
     theirs = {q: pd.read_csv(p) for q in queries
               if os.path.exists(p := os.path.join(folder, f"{q}_0_test_pred.csv"))}

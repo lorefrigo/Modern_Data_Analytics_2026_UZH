@@ -24,6 +24,8 @@ import argparse, json, os, sys, time
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
+from lcm_recheck.config import IMDB_CSV_DIR, IMDB_DATASET_DIR, PG_HOST, PG_USER, PG_PASSWORD, PG_DB, PORTS, PG18
+
 AUTHORS_COPY_OPTS = "DELIMITER ',' QUOTE '\"' ESCAPE '\\' NULL '' CSV HEADER"
 
 # Planner-relevant settings: the authors' PG16 config (src/conf/postgres/modified-postgresql16.conf)
@@ -150,12 +152,12 @@ def check(a, lengths):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv_dir", default="lcm-eval/data/datasets/imdb", help="folder with the 15 <table>.csv files")
-    ap.add_argument("--dataset_dir", default="lcm-eval/src/cross_db_benchmark/datasets/imdb",
+    ap.add_argument("--csv_dir", default=IMDB_CSV_DIR, help="folder with the 15 <table>.csv files")
+    ap.add_argument("--dataset_dir", default=IMDB_DATASET_DIR,
                     help="repo folder with schema.json, table_lengths.json, schema_sql/postgres.sql")
-    ap.add_argument("--host", default="localhost"); ap.add_argument("--port", type=int, default=5418)
-    ap.add_argument("--user", default="postgres"); ap.add_argument("--password", default="")
-    ap.add_argument("--db", default="imdb")
+    ap.add_argument("--host", default=PG_HOST); ap.add_argument("--port", type=int, default=PORTS[PG18])
+    ap.add_argument("--user", default=PG_USER); ap.add_argument("--password", default=PG_PASSWORD)
+    ap.add_argument("--db", default=PG_DB)
     ap.add_argument("--force", action="store_true", help="drop and reload an existing database")
     ap.add_argument("--check_only", action="store_true")
     a = ap.parse_args()

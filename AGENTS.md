@@ -58,8 +58,10 @@ All commands run from the repository root.
 
 | File | Purpose |
 |---|---|
+| `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `default_retrain_root()` |
+| `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
 | `scripts/osf_fetch.py` | List or selectively download OSF files (shows sizes first) |
-| `scripts/check_downloads.py` | Report which prediction files are present; imports constants from `sigtests.py` |
+| `scripts/check_downloads.py` | Report which prediction files are present; constants from `config.py` |
 | `scripts/load_imdb.py` | Create and load `imdb`; check row counts, planner settings and that hints work |
 | `scripts/run_plans.py` | EXPLAIN (and optionally EXPLAIN ANALYZE) candidate plans; writes the authors' run-file format; resumable |
 | `scripts/extract_runs.py` | Run files to one CSV row per candidate plan (cost, runtime, plan-shape hash) |
@@ -88,19 +90,11 @@ All commands run from the repository root.
 
 Known problems to fix:
 
-- Constants are duplicated: the 58 JOB-light ids, the model lists and the workload lists.
-  - The 58 ids are also hard-coded (`IDS`) in `check_pinned.py`, `inspect_e1_inputs.py` and
-    `make_pg18_predcsv.py`.
-  - `bias_models.py` redefines `B = 10_000` and the folder name `scan_costs_percentiles` (also literal in
-    `sigtests.py` and `check_downloads.py`).
-  - The default `retraining_evaluation` path next to `eval_root` is derived separately in `sigtests.py`,
-    `bias_models.py` and `check_downloads.py`.
-  - `inspect_e1_inputs.py` hard-codes the workload and run folders under `lcm-eval/data/`.
 - Helper code is duplicated: `leading()` (parses the `Leading(...)` hint) in `check_pinned.py`,
   `inspect_e1_inputs.py`, `check_pg16_ties.py` and `make_pg18_predcsv.py`; the `--out` header and `Tee`
   set-up in `sigtests.py`, `bias_data.py` and `bias_models.py`.
-- `check_downloads.py` depends on `sigtests.py` being importable from the same folder; so do
-  `bias_data.py` (also on `extract_runs.py`) and `bias_models.py`.
+- `bias_data.py` and `bias_models.py` depend on `sigtests.py` (and `bias_data.py` also on
+  `extract_runs.py`) being importable from the same folder.
 - `check_pg16_labels.py`, `check_pinned.py` and `inspect_e1_inputs.py` run at import time and have no
   `--out`.
 - Connection arguments are repeated in `run_plans.py`, `load_imdb.py` and `diagnose_hints.py`.
@@ -114,10 +108,11 @@ Known problems to fix:
 
 ## E1 pipeline (current commands)
 
-The 58 query ids are listed in `scripts/sigtests.py` and `scripts/check_downloads.py`; after the
-refactoring they must come from `config.py` only. Below, `$Q58` stands for that list.
+The 58 query ids are defined only in `src/lcm_recheck/config.py` (`JOB_LIGHT_IDS`). Below, the array `Q58` holds
+that list (`"${Q58[@]}"` works in bash and zsh).
 
 ```bash
+Q58=($(uv run python -c "from lcm_recheck.config import JOB_LIGHT_IDS; print(*JOB_LIGHT_IDS)"))
 # PG10 runtimes from the authors' raw runs (check_downloads.py prints the exact --runs path)
 uv run python scripts/extract_runs.py --runs <authors' PG10 run folder> --version pg10_paper --out results/pg10_paper.csv
 # fixed copy of the pinned SQL
@@ -125,7 +120,7 @@ mkdir -p results/sql_pinned_fixed
 for f in lcm-eval/data/workloads/evaluation/imdb/join_order_full_pg_10_hinted/*.sql; do
   sed 's/NestedLoop(/NestLoop(/g' "$f" > "results/sql_pinned_fixed/$(basename "$f")"; done
 # PG18 costs (explain only, a few minutes)
-uv run python scripts/run_plans.py --explain_only --port 5418 --sql_dir results/sql_pinned_fixed --out_dir results/runs_pg18_explain_fixed --queries $Q58
+uv run python scripts/run_plans.py --explain_only --port 5418 --sql_dir results/sql_pinned_fixed --out_dir results/runs_pg18_explain_fixed --queries "${Q58[@]}"
 uv run python scripts/extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --out results/pg18_explain_fixed.csv
 uv run python scripts/make_pg18_predcsv.py --pg10 results/pg10_paper.csv --pg18 results/pg18_explain_fixed.csv --eval_root lcm-eval/data/evaluation
 uv run python scripts/diagnose_hints.py --pg18 results/pg18_explain_fixed.csv --port 5418 --eval_root lcm-eval/data/evaluation --out results/pg18_hint_status_fixed.csv

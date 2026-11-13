@@ -18,8 +18,7 @@ import argparse, os
 import numpy as np, pandas as pd
 from scipy.stats import spearmanr
 
-IDS = [int(x) for x in ("0 1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 "
-                        "35 36 37 38 41 43 44 45 46 47 49 50 51 52 53 54 55 61 62 63 64 65 66 67 68").split()]
+from lcm_recheck.config import JOB_LIGHT_IDS, REF, PG16, PG18, JOIN_ORDER_FOLDER
 
 
 def leading(s):
@@ -35,7 +34,7 @@ def leading(s):
 
 
 def ref_file(root, model, q):
-    p = os.path.join(root, model, "imdb", "join_order_full", f"{q}_0_test_pred.csv")
+    p = os.path.join(root, model, "imdb", JOIN_ORDER_FOLDER, f"{q}_0_test_pred.csv")
     return pd.read_csv(p) if os.path.exists(p) else None
 
 
@@ -43,17 +42,17 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--pg10", required=True, help="extract_runs.py output of the authors' PG10 runs")
 ap.add_argument("--pg18", required=True, help="extract_runs.py output of the PG18 explain-only runs")
 ap.add_argument("--eval_root", required=True)
-ap.add_argument("--model", default="postgres_18", help="output folder name under eval_root")
+ap.add_argument("--model", default=PG18, help="output folder name under eval_root")
 a = ap.parse_args()
 root = os.path.expanduser(a.eval_root)
 
 pg10, pg18 = pd.read_csv(a.pg10), pd.read_csv(a.pg18)
 pg10["ok"] = ~pg10.timeout & pg10.runtime_s.notna()
-out = os.path.join(root, a.model, "imdb", "join_order_full")
+out = os.path.join(root, a.model, "imdb", JOIN_ORDER_FOLDER)
 os.makedirs(out, exist_ok=True)
 
 stats, problems = [], []
-for k in IDS:
+for k in JOB_LIGHT_IDS:
     q = f"job_light_{k}"
     d10 = pg10[pg10["query"] == q].set_index("plan_idx")
     d18 = pg18[pg18["query"] == q].sort_values("plan_idx")
@@ -73,11 +72,11 @@ for k in IDS:
         .to_csv(os.path.join(out, f"{q}_0_test_pred.csv"), index=False)
 
     s = dict(query=q, n=len(idx), selected=label[np.argmin(pred)], optimal=label.min())
-    for model in ["postgres_16", "postgres"]:
+    for model in [PG16, REF]:
         r = ref_file(root, model, q)
         s[f"same_as_{model}"] = r is not None and len(r) == len(idx) and \
             np.allclose(r.label.values, label, rtol=1e-3)
-        if model == "postgres_16" and s[f"same_as_{model}"] and len(idx) >= 3:
+        if model == PG16 and s[f"same_as_{model}"] and len(idx) >= 3:
             s["rho_pg16"] = spearmanr(pred, r.prediction.values)[0]
     if len(idx) >= 3:
         s["rho_pg10"] = spearmanr(pred, d10.loc[idx, "est_cost"].values)[0]

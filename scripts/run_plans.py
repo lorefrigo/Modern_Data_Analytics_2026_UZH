@@ -13,6 +13,8 @@ import psycopg2
 from psycopg2 import errors
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
+from lcm_recheck.config import PG_HOST, PG_USER, PG_PASSWORD, PG_DB, PG_STOCK_PORT
+
 
 def rows(cur, sql):
     cur.execute(sql)
@@ -27,9 +29,9 @@ def main():
     ap.add_argument("--explain_only", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--timeout", type=int, default=30, help="seconds per statement")
-    ap.add_argument("--host", default="localhost"); ap.add_argument("--port", type=int, default=5432)
-    ap.add_argument("--user", default="postgres"); ap.add_argument("--password", default="")
-    ap.add_argument("--db", default="imdb")
+    ap.add_argument("--host", default=PG_HOST); ap.add_argument("--port", type=int, default=PG_STOCK_PORT)
+    ap.add_argument("--user", default=PG_USER); ap.add_argument("--password", default=PG_PASSWORD)
+    ap.add_argument("--db", default=PG_DB)
     a = ap.parse_args()
     os.makedirs(a.out_dir, exist_ok=True)
 

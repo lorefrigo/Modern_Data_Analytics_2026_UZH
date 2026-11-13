@@ -12,8 +12,7 @@ Usage (from MDA/):
 import argparse, os
 import numpy as np, pandas as pd
 
-IDS = [int(x) for x in ("0 1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 "
-                        "35 36 37 38 41 43 44 45 46 47 49 50 51 52 53 54 55 61 62 63 64 65 66 67 68").split()]
+from lcm_recheck.config import JOB_LIGHT_IDS, PG16, JOIN_ORDER_FOLDER
 
 
 def leading(s):
@@ -36,7 +35,7 @@ pg10 = pd.read_csv(a.pg10)
 pg10["ok"] = ~pg10.timeout & pg10.runtime_s.notna()
 
 rows, corrs = [], []
-for k in IDS:
+for k in JOB_LIGHT_IDS:
     q = f"job_light_{k}"
     d = pg10[pg10["query"] == q].set_index("plan_idx")
     lead = d.sql.map(leading)
@@ -45,7 +44,7 @@ for k in IDS:
         pinned = [l for l in f if l.strip()]
     mapped = [lead2idx.get(leading(s)) for s in pinned]
     ok_map = [i for i in mapped if i is not None]
-    sc16 = pd.read_csv(os.path.join(a.eval_root, "postgres_16", "imdb", "join_order_full", f"{q}_0_test_pred.csv"))
+    sc16 = pd.read_csv(os.path.join(a.eval_root, PG16, "imdb", JOIN_ORDER_FOLDER, f"{q}_0_test_pred.csv"))
 
     kept = [i for i in ok_map if d.loc[i, "ok"]]          # rule: pinned plans that have a PG10 runtime
     labels_ok = len(sc16) == len(kept) and \
