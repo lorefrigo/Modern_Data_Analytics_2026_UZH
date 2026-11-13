@@ -234,7 +234,9 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
        `Server:` line holds the exact server version, so a Postgres.app update changes that line only).
      - `diagnose_hints.py --pg18 results/pg18_explain_fixed.csv --port 5418 --eval_root
        lcm-eval/data/evaluation --out /tmp/hint_status_check.csv`: `cmp` with
-       `results/pg18_hint_status_fixed.csv` (identical).
+       `results/pg18_hint_status_fixed.csv` (identical), and its stdout identical to
+       `results/golden/diagnose_hints.stdout` (deterministic; it prints the `--out` path, so use exactly
+       this one).
 3. The commit message states what changed and whether any number changed, and why.
 
 ## How to extend the code
