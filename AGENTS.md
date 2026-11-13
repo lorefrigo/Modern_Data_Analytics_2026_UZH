@@ -6,7 +6,7 @@ before changing anything.
 ## What this repository is
 
 Seminar project (Modern Data Analytics, UZH, autumn 2026) on Heinrich et al., *How Good are Learned Cost
-Models, Really?* (SIGMOD 2025). It contains three pieces of work, all on top of the authors' code and data:
+Models, Really?* (SIGMOD 2025). It contains four pieces of work, all on top of the authors' code and data:
 
 1. **Re-analysis.** Significance tests of the paper's main claim ("in none of the tasks LCMs can
    significantly beat traditional approaches") on the authors' published predictions, for all three tasks:
@@ -18,6 +18,26 @@ Models, Really?* (SIGMOD 2025). It contains three pieces of work, all on top of 
    text replacement, applied to a copy of the SQL.
 3. **E2 (designed, not run).** Execute the candidate plans on PG10 and PG18 on the same machine and compare
    each version's plan selection against its own runtimes (`sigtests.py versions`).
+4. **Training-data bias** (Section 5.5, Section 5.7, recommendation R3), access-path task only:
+   - **Test 1** (`bias_data.py`): is the training data itself biased? Reads the authors' raw training run
+     files. 1a scan composition, 1b selectivity of index vs sequential scans (KS), 1c missing negative
+     examples (Clopper-Pearson, Fisher) against the index/seq retraining queries, 1d timeouts (Fisher),
+     1e unique and clustered index columns. Also a leakage check for Test 3a. No random numbers.
+   - **Test 2** (`bias_models.py`): do the models show the bias? 21 columns of Table 3, all LCMs, PG10 and
+     PG16. 2a selectivity slope, 2b over-preference for index scans, 2c false index picks vs PG10. Exact
+     McNemar tests, Holm across LCMs, and a cluster bootstrap over **columns**.
+   - **Test 3a** (`bias_models.py`): does fine-tuning on diversified data fix the choices? 6 IMDB columns
+     of Fig. 14, 5 fine-tuned LCMs, exact McNemar before vs after.
+
+   ```bash
+   uv run python scripts/bias_data.py --imdb_train_runs lcm-eval/data/runs/raw/imdb/workload_100k_s1_c8220.json \
+       --ref_index_runs lcm-eval/data/runs/raw/imdb/index_retraining/index_retraining.json \
+       --ref_seq_runs lcm-eval/data/runs/raw/imdb/seq_retraining/seq_retraining.json --out results/bias_data_imdb.txt
+   # the 19 other training databases (1a, 1b, 1d, 1e only)
+   uv run python scripts/bias_data.py --train_runs lcm-eval/data/runs/raw/{accidents,airline,baseball,basketball,carcinogenesis,consumer,credit,employee,fhnk,financial,geneea,genome,hepatitis,movielens,seznam,ssb,tournament,tpc_h_pk,walmart}/workload_100k_s1_c8220.json \
+       --out results/bias_data_19dbs.txt
+   uv run python scripts/bias_models.py --eval_root lcm-eval/data/evaluation --out results/bias_models.txt
+   ```
 
 ## External dependencies (not in this repository)
 
@@ -46,22 +66,51 @@ All commands run from the repository root.
 | `scripts/make_pg18_predcsv.py` | PG10 runtimes + PG18 costs to prediction CSVs in `<eval_root>/postgres_18/` |
 | `scripts/diagnose_hints.py` | Re-plan with pg_hint_plan debug output; find hint syntax errors and unused hints |
 | `scripts/check_pg16_ties.py` | Test whether the authors' Sc. PG16 shows the same broken-hint ties |
+| `scripts/check_pg16_labels.py` | Which runtimes and candidate set the authors used for Sc. PG10 / Sc. PG16 (four hypotheses); prints only |
+| `scripts/check_pinned.py` | Whether Sc. PG16 was built from the pinned SQL (maps pinned lines to PG10 plans via `Leading(...)`); prints only |
+| `scripts/inspect_e1_inputs.py` | E1 input check: which SQL each authors' run used, and whether plan positions line up across folders; no arguments, prints only |
 | `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` |
-| `results/` | Derived outputs: `pg10_paper.csv`, `pg18_explain*.csv`, `pg18_hint_status*.csv`, `sigtests_*.txt`, `osf_listing.tsv` |
+| `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; imports from `extract_runs.py` and `sigtests.py`; uses `ijson` |
+| `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions; imports from `sigtests.py` |
+| `results/pg10_paper.csv` | `extract_runs.py` output for the authors' PG10 runs (E1 labels) |
+| `results/pg16_paper.csv` | `extract_runs.py` output for the authors' PG16 runs (`--version pg16_paper`); input to `check_pg16_labels.py` |
+| `results/pg18_explain.csv`, `results/pg18_explain_fixed.csv` | PG18 costs on the original and the fixed pinned SQL |
+| `results/pg18_hint_status.csv`, `results/pg18_hint_status_fixed.csv` | `diagnose_hints.py` output for both variants |
+| `results/sigtests_paper.txt` | `sigtests.py paper` output, all tasks |
+| `results/bias_data_imdb.txt` | `bias_data.py` on IMDB with the retraining queries (Tests 1a-1e, leakage check) |
+| `results/bias_data_19dbs.txt` | `bias_data.py` on the 19 other training databases (1a, 1b, 1d, 1e) |
+| `results/bias_models.txt` | `bias_models.py` output (Tests 2 and 3a) |
+| `results/osf_listing.tsv` | OSF archive sizes from `osf_fetch.py` |
+| `results/lcm-eval-commit.txt` | The pinned `lcm-eval` commit hash |
 | `results/runs_*/` | Raw run files (gitignored) |
 | `results/sql_pinned_fixed/` | Pinned SQL with `NestedLoop(` replaced by `NestLoop(` (gitignored, regenerable) |
-| `results/golden/` | Local regression reference, see "Verification" (gitignored) |
+| `results/golden/` | Local regression reference, see "Verification" (gitignored): copies of the committed CSVs and `sigtests_paper.txt`, plus `sigtests_paper_all.txt`, `bias_models_rerun.txt`, `rerun_pg18_explain_fixed.csv` and `predictions/postgres_18{,_asis}/` |
 
 Known problems to fix:
 
 - Constants are duplicated: the 58 JOB-light ids, the model lists and the workload lists.
-- `check_downloads.py` depends on `sigtests.py` being importable from the same folder.
+  - The 58 ids are also hard-coded (`IDS`) in `check_pinned.py`, `inspect_e1_inputs.py` and
+    `make_pg18_predcsv.py`.
+  - `bias_models.py` redefines `B = 10_000` and the folder name `scan_costs_percentiles` (also literal in
+    `sigtests.py` and `check_downloads.py`).
+  - The default `retraining_evaluation` path next to `eval_root` is derived separately in `sigtests.py`,
+    `bias_models.py` and `check_downloads.py`.
+  - `inspect_e1_inputs.py` hard-codes the workload and run folders under `lcm-eval/data/`.
+- Helper code is duplicated: `leading()` (parses the `Leading(...)` hint) in `check_pinned.py`,
+  `inspect_e1_inputs.py`, `check_pg16_ties.py` and `make_pg18_predcsv.py`; the `--out` header and `Tee`
+  set-up in `sigtests.py`, `bias_data.py` and `bias_models.py`.
+- `check_downloads.py` depends on `sigtests.py` being importable from the same folder; so do
+  `bias_data.py` (also on `extract_runs.py`) and `bias_models.py`.
+- `check_pg16_labels.py`, `check_pinned.py` and `inspect_e1_inputs.py` run at import time and have no
+  `--out`.
 - Connection arguments are repeated in `run_plans.py`, `load_imdb.py` and `diagnose_hints.py`.
 - `make_pg18_predcsv.py` runs at import time and is hard-wired to PG18.
 - The SQL fix exists only as a shell loop.
 - Generated prediction folders (`postgres_18`, `postgres_18_asis`) are written **inside**
   `lcm-eval/data/evaluation/`, which is gitignored and belongs to the authors.
 - `sigtests.py` uses one module-level random generator, so bootstrap results depend on the order of calls.
+  `bias_models.py` has its own module-level `RNG = np.random.default_rng(0)`; Test 2 draws one index matrix
+  from it and shares it across 2a, 2b, 2c and all models.
 
 ## E1 pipeline (current commands)
 
@@ -88,19 +137,24 @@ prediction folder is kept as `postgres_18_asis`.
 
 ## Statistical protocol (never change silently)
 
-- The unit of resampling is the **query**: plans of the same query are correlated, so they are never
-  resampled individually.
+- The unit of resampling is the unit within which observations are correlated: the **query** for Tasks 1
+  and 3 (plans of the same query are never resampled individually), the **column** for Task 2 and for bias
+  Tests 2 and 3a.
 - Bootstrap intervals use `B = 10_000` resamples. Paired tests are Wilcoxon signed-rank tests on per-query
   differences (log ratios for runtimes). Multiple testing is handled per family as currently implemented:
   Holm for p-values, Bonferroni-adjusted bootstrap intervals.
 - LCM results are averaged over seeds 0, 1, 2, as in the paper; per-seed results are also reported.
 - Timed-out plans are dropped, as in the paper, unless `--timeout_penalty` is given.
-- **Randomness (decided: option B).** No module-level or shared random generator. Every bootstrap gets
-  its own generator, seeded from the base seed 0 and a stable identifier of the test:
-  `np.random.default_rng([0, zlib.crc32(test_id.encode())])`. Never use Python's `hash()` for this,
-  because it is randomized per process. Results must then not depend on which tasks are run or in which
-  order.
-  - Introducing this changes the bootstrap intervals once, but not the p-values, totals or verdicts.
+- **Randomness (decided: option B).** No module-level random generator. One generator per test family,
+  seeded from the base seed 0 and a stable family identifier:
+  `np.random.default_rng([0, zlib.crc32(family_id.encode())])`. Never use Python's `hash()` for this,
+  because it is randomized per process. Within a family all models use the same resample indices, because
+  the comparisons with PG10 and with the optimum are paired. Results must then not depend on which tasks
+  are run or in which order.
+  - The option-B commit may change bootstrap intervals, bootstrap p-values and the verdicts that rest on
+    them (runtime and balanced-accuracy verdicts in `sigtests.py`, Tests 2a and 2b in `bias_models.py`).
+    Exact tests (Wilcoxon, McNemar), totals and point estimates must not change. The commit message lists
+    every verdict that flips.
   - Do it in a dedicated commit that reports how far each interval moved.
   - After that commit, regenerate `results/golden/sigtests_*` and the committed `results/sigtests_*.txt`.
 - Every file written with `--out` starts with a header: date, exact command, package versions.
@@ -112,16 +166,28 @@ Ask the human before changing anything in this section.
 Do one step per commit and verify each step (see "Verification") before the next one.
 
 1. `src/lcm_recheck/config.py`: the single source for paths, default ports, the 58 JOB-light ids, the model
-   lists, seeds, workload lists and `B`. All scripts import from it.
+   lists, seeds, workload lists, the `scan_costs_percentiles` folder, the `retraining_evaluation` default
+   and `B`. All scripts import from it, including `bias_*.py`, `check_pinned.py` and `inspect_e1_inputs.py`.
 2. `src/lcm_recheck/db.py`: shared connection arguments (`--host --port --user --password --db`) and
    `connect()`.
-3. Wrap all top-level code in `main()` functions. `check_downloads.py` imports from the package, not from
-   `sigtests.py`.
-4. `src/lcm_recheck/runs.py`: run-file parsing, moved out of `extract_runs.py`.
+3. Wrap all top-level code in `main()` functions (including `check_pg16_labels.py`, `check_pinned.py` and
+   `inspect_e1_inputs.py`). `check_downloads.py`, `bias_data.py` and `bias_models.py` import from the
+   package, not from `sigtests.py` or `extract_runs.py`. Move `leading()`, `Tee`, `section()` and the
+   `--out` header into the package.
+4. `src/lcm_recheck/runs.py`: run-file parsing, moved out of `extract_runs.py` (also `lines`/`exec_ms`, which
+   `bias_data.py` uses, and `bias_data.py`'s `load_run`/`plan_nodes`).
 5. Split `sigtests.py` into `stats.py` (bootstrap, Wilcoxon, corrections) and `tasks/join.py`,
    `tasks/access.py`, `tasks/physical.py`, `tasks/versions.py`. Keep the `sigtests.py` CLI and its output
    format.
-6. Option B randomness (see above), in its own commit.
+   - Same step for the bias tests: their statistics helpers (`mcnemar`, `boot_p`, `ci`, `wilson`,
+     `cp_upper`) go to `stats.py`, the tests to `tasks/bias_data.py` and `tasks/bias_models.py`. Keep both
+     CLIs and their output format.
+6. Option B randomness (see above), in its own commit, for `sigtests.py` and `bias_models.py`.
+   `bias_models.py` Test 2 must keep one shared index matrix across models (the comparisons with the
+   optimum and with PG10 are paired).
+   - In the same commit, the Task 1 H2 (Q-error) bootstrap in `sigtests.py` moves from `b=2000` to `B`.
+     If the full `sigtests.py paper` run then takes much longer, report the runtime and ask the human;
+     keep 2,000 only if they agree, and then document it as an exception in "Statistical protocol".
 7. Generalise `make_pg18_predcsv.py` into `make_predcsv.py --label postgres_18 ...`, writing to
    `results/predictions/<label>/imdb/join_order_full/`.
    - `sigtests.py paper` gets `--extra_root results/predictions`, so that no generated file lives inside
@@ -146,6 +212,15 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
      comparison for floats that are only re-serialised.
    - `sigtests` outputs must be identical apart from the header lines; bootstrap intervals may differ
      only in the option-B commit.
+   - `bias_models.py --eval_root lcm-eval/data/evaluation` must match `results/golden/bias_models_rerun.txt`
+     apart from the header lines; bootstrap intervals and bootstrap p-values may differ only in the
+     option-B commit. After that commit, regenerate the golden file and the committed
+     `results/bias_models.txt`.
+   - `bias_data.py` outputs must be identical to `results/bias_data_imdb.txt` and
+     `results/bias_data_19dbs.txt` apart from the header lines (no randomness).
+   - `check_pg16_labels.py`, `check_pinned.py`, `check_pg16_ties.py` and `inspect_e1_inputs.py` only print:
+     their stdout must be identical to copies saved as `results/golden/<script>.stdout` before the
+     refactoring.
    - DB steps: rerun `run_plans.py --explain_only` on queries `0 33 55` into `/tmp` and compare `est_cost`
      with `results/pg18_explain_fixed.csv` (0 differences expected).
 3. The commit message states what changed and whether any number changed, and why.
