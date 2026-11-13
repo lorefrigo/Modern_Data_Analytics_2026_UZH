@@ -1,0 +1,164 @@
+# 2026-11-01 11:25:43
+# command: python scripts/bias_data.py --train_runs lcm-eval/data/runs/raw/accidents/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/airline/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/baseball/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/basketball/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/carcinogenesis/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/consumer/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/credit/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/employee/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/fhnk/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/financial/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/geneea/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/genome/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/hepatitis/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/movielens/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/seznam/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/ssb/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/tournament/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/tpc_h_pk/workload_100k_s1_c8220.json lcm-eval/data/runs/raw/walmart/workload_100k_s1_c8220.json --out results/bias_data_19dbs.txt
+# python 3.12.11, numpy 2.5.4, pandas 3.1.0, scipy 1.18.1, ijson yes
+
+
+====================================================================================================
+TEST 1: IS THE TRAINING DATA BIASED?
+====================================================================================================
+
+Reading training run files:
+  accidents/workload_100k_s1_c8220.json: 100000 queries read, 47 tables with sizes
+  airline/workload_100k_s1_c8220.json: 24984 queries read, 60 tables with sizes
+  baseball/workload_100k_s1_c8220.json: 39416 queries read, 69 tables with sizes
+  basketball/workload_100k_s1_c8220.json: 29403 queries read, 53 tables with sizes
+  carcinogenesis/workload_100k_s1_c8220.json: 100000 queries read, 50 tables with sizes
+  consumer/workload_100k_s1_c8220.json: 92371 queries read, 47 tables with sizes
+  credit/workload_100k_s1_c8220.json: 28439 queries read, 52 tables with sizes
+  employee/workload_100k_s1_c8220.json: 47958 queries read, 50 tables with sizes
+  fhnk/workload_100k_s1_c8220.json: 19499 queries read, 47 tables with sizes
+  financial/workload_100k_s1_c8220.json: 39452 queries read, 52 tables with sizes
+  geneea/workload_100k_s1_c8220.json: 100000 queries read, 63 tables with sizes
+  genome/workload_100k_s1_c8220.json: 23053 queries read, 50 tables with sizes
+  hepatitis/workload_100k_s1_c8220.json: 100000 queries read, 51 tables with sizes
+  movielens/workload_100k_s1_c8220.json: 37211 queries read, 51 tables with sizes
+  seznam/workload_100k_s1_c8220.json: 18261 queries read, 48 tables with sizes
+  ssb/workload_100k_s1_c8220.json: 14428 queries read, 47 tables with sizes
+  tournament/workload_100k_s1_c8220.json: 30422 queries read, 53 tables with sizes
+  tpc_h_pk/workload_100k_s1_c8220.json: 19509 queries read, 52 tables with sizes
+  walmart/workload_100k_s1_c8220.json: 31202 queries read, 46 tables with sizes
+
+1a  Composition of the scans in the training plans
+    all = every executed scan node; filter = scans that filter a base table once (see 1b/1c).
+                                      file  scans       n  seq_%       seq_ci95  index_%   index_ci95  bitmap_% bitmap_ci95
+     accidents/workload_100k_s1_c8220.json    all   32186   97.7   [97.5, 97.8]      2.3   [2.2, 2.5]       0.0  [0.0, 0.0]
+       airline/workload_100k_s1_c8220.json    all   68923   85.9   [85.7, 86.2]     14.0 [13.7, 14.3]       0.1  [0.1, 0.1]
+      baseball/workload_100k_s1_c8220.json    all   90259   80.7   [80.5, 81.0]     16.9 [16.6, 17.1]       2.4  [2.3, 2.5]
+    basketball/workload_100k_s1_c8220.json    all   66868   70.4   [70.1, 70.7]     28.6 [28.2, 28.9]       1.0  [0.9, 1.1]
+carcinogenesis/workload_100k_s1_c8220.json    all   60973   74.2   [73.9, 74.6]     25.8 [25.4, 26.1]       0.0  [0.0, 0.0]
+      consumer/workload_100k_s1_c8220.json    all   30270   99.2   [99.1, 99.3]      0.8   [0.7, 0.9]       0.0 [-0.0, 0.0]
+        credit/workload_100k_s1_c8220.json    all   29819   94.4   [94.1, 94.6]      5.6   [5.3, 5.9]       0.0  [0.0, 0.1]
+      employee/workload_100k_s1_c8220.json    all  119882   47.0   [46.7, 47.2]     52.0 [51.8, 52.3]       1.0  [0.9, 1.0]
+          fhnk/workload_100k_s1_c8220.json    all   43564   68.6   [68.2, 69.0]     30.0 [29.6, 30.4]       1.4  [1.3, 1.5]
+     financial/workload_100k_s1_c8220.json    all  110436   83.2   [83.0, 83.4]     16.8 [16.6, 17.0]       0.0  [0.0, 0.0]
+        geneea/workload_100k_s1_c8220.json    all  185497   82.7   [82.6, 82.9]     17.3 [17.1, 17.4]       0.0  [0.0, 0.0]
+        genome/workload_100k_s1_c8220.json    all   56969   52.2   [51.8, 52.6]     46.3 [45.9, 46.7]       1.5  [1.4, 1.6]
+     hepatitis/workload_100k_s1_c8220.json    all   33593   52.4   [51.8, 52.9]     47.6 [47.1, 48.1]       0.0  [0.0, 0.1]
+     movielens/workload_100k_s1_c8220.json    all   68271   68.0   [67.6, 68.3]     29.5 [29.2, 29.8]       2.6  [2.4, 2.7]
+        seznam/workload_100k_s1_c8220.json    all   40864   75.7   [75.3, 76.1]     23.7 [23.3, 24.1]       0.6  [0.5, 0.7]
+           ssb/workload_100k_s1_c8220.json    all   34981   84.2   [83.8, 84.6]     15.8 [15.4, 16.2]       0.0  [0.0, 0.0]
+    tournament/workload_100k_s1_c8220.json    all   67846   74.1   [73.8, 74.4]     24.8 [24.5, 25.1]       1.1  [1.0, 1.2]
+      tpc_h_pk/workload_100k_s1_c8220.json    all   64061   56.2   [55.8, 56.6]     43.0 [42.7, 43.4]       0.8  [0.7, 0.8]
+       walmart/workload_100k_s1_c8220.json    all   56937   84.2   [83.9, 84.5]     13.1 [12.8, 13.4]       2.7  [2.6, 2.9]
+     accidents/workload_100k_s1_c8220.json filter   16713  100.0 [100.0, 100.0]      0.0   [0.0, 0.0]       0.0  [0.0, 0.0]
+       airline/workload_100k_s1_c8220.json filter   27010   95.2   [95.0, 95.5]      4.7   [4.4, 4.9]       0.1  [0.0, 0.1]
+      baseball/workload_100k_s1_c8220.json filter   53648   90.8   [90.6, 91.1]      6.7   [6.5, 6.9]       2.5  [2.4, 2.6]
+    basketball/workload_100k_s1_c8220.json filter   30856   92.7   [92.5, 93.0]      5.9   [5.7, 6.2]       1.3  [1.2, 1.5]
+carcinogenesis/workload_100k_s1_c8220.json filter   40426   75.6   [75.2, 76.0]     24.4 [24.0, 24.8]       0.0  [0.0, 0.0]
+      consumer/workload_100k_s1_c8220.json filter   14363  100.0 [100.0, 100.0]      0.0   [0.0, 0.0]       0.0  [0.0, 0.0]
+        credit/workload_100k_s1_c8220.json filter   16730   93.5   [93.1, 93.8]      6.5   [6.1, 6.9]       0.1  [0.0, 0.1]
+      employee/workload_100k_s1_c8220.json filter   50029   90.6   [90.3, 90.8]      7.2   [6.9, 7.4]       2.3  [2.1, 2.4]
+          fhnk/workload_100k_s1_c8220.json filter   19017   90.7   [90.3, 91.1]      6.8   [6.4, 7.2]       2.5  [2.3, 2.7]
+     financial/workload_100k_s1_c8220.json filter   76536   88.2   [88.0, 88.5]     11.8 [11.5, 12.0]       0.0  [0.0, 0.0]
+        geneea/workload_100k_s1_c8220.json filter  114953   95.3   [95.2, 95.4]      4.7   [4.6, 4.8]       0.0  [0.0, 0.0]
+        genome/workload_100k_s1_c8220.json filter   21059   76.2   [75.6, 76.7]     21.2 [20.7, 21.8]       2.6  [2.4, 2.8]
+     hepatitis/workload_100k_s1_c8220.json filter   18264   62.1   [61.4, 62.8]     37.8 [37.1, 38.5]       0.1  [0.0, 0.1]
+     movielens/workload_100k_s1_c8220.json filter   31044   75.4   [75.0, 75.9]     19.6 [19.2, 20.1]       4.9  [4.7, 5.2]
+        seznam/workload_100k_s1_c8220.json filter   18793   94.6   [94.3, 94.9]      4.7   [4.4, 5.0]       0.6  [0.5, 0.8]
+           ssb/workload_100k_s1_c8220.json filter   14432   94.4   [94.0, 94.7]      5.6   [5.3, 6.0]       0.0  [0.0, 0.0]
+    tournament/workload_100k_s1_c8220.json filter   39408   79.8   [79.4, 80.2]     18.6 [18.2, 19.0]       1.6  [1.5, 1.7]
+      tpc_h_pk/workload_100k_s1_c8220.json filter   21856   92.6   [92.2, 92.9]      6.1   [5.8, 6.4]       1.3  [1.1, 1.4]
+       walmart/workload_100k_s1_c8220.json filter   40768   91.6   [91.3, 91.8]      5.7   [5.5, 5.9]       2.7  [2.6, 2.9]
+                                 ALL FILES    all 1262199   74.0   [73.9, 74.1]     25.2 [25.1, 25.3]       0.8  [0.8, 0.8]
+                                 ALL FILES filter  665905   88.8   [88.7, 88.9]     10.1 [10.0, 10.1]       1.1  [1.1, 1.2]
+
+1b  Selectivity (rows returned / table rows) of filter scans: index vs sequential
+    H0: both come from the same distribution (two-sample Kolmogorov-Smirnov).
+                                      file  n_index  n_seq    index_p10/p50/p90      seq_p10/p50/p90     KS_D  KS_p
+     accidents/workload_100k_s1_c8220.json        0  16713          nan/nan/nan 0.0000/0.0354/1.0000      NaN   NaN
+       airline/workload_100k_s1_c8220.json     1265  25727 0.0000/0.0002/0.3071 0.0000/0.1249/0.9999 0.491812   0.0
+      baseball/workload_100k_s1_c8220.json     3587  48723 0.0000/0.0000/0.0136 0.0000/0.3106/1.0000 0.566244   0.0
+    basketball/workload_100k_s1_c8220.json     1825  28618 0.0000/0.0000/0.0013 0.0000/0.1803/1.0000 0.607799   0.0
+carcinogenesis/workload_100k_s1_c8220.json     9853  30566 0.0000/0.0000/0.0006 0.0000/0.0001/1.0000 0.403452   0.0
+      consumer/workload_100k_s1_c8220.json        0  14363          nan/nan/nan 0.0044/0.7263/1.0000      NaN   NaN
+        credit/workload_100k_s1_c8220.json     1084  15637 0.0000/0.0342/0.1508 0.0000/0.8667/1.0000 0.631069   0.0
+      employee/workload_100k_s1_c8220.json     3584  45306 0.0000/0.0000/0.1272 0.0000/0.1111/1.0000 0.457342   0.0
+          fhnk/workload_100k_s1_c8220.json     1292  17254 0.0000/0.0001/0.3528 0.0000/0.1821/1.0000 0.342604   0.0
+     financial/workload_100k_s1_c8220.json     8996  67540 0.0000/0.0190/0.1802 0.0001/0.7853/1.0000 0.633373   0.0
+        geneea/workload_100k_s1_c8220.json     5421 109532 0.0000/0.0011/0.0306 0.0000/0.3759/1.0000 0.558996   0.0
+        genome/workload_100k_s1_c8220.json     4471  16041 0.0002/0.0305/0.1222 0.0028/0.1667/1.0000 0.507589   0.0
+     hepatitis/workload_100k_s1_c8220.json     6902  11350 0.0000/0.0001/0.0004 0.0000/0.9996/1.0000 0.634537   0.0
+     movielens/workload_100k_s1_c8220.json     6098  23419 0.0011/0.0271/0.0991 0.0311/0.8796/1.0000 0.744349   0.0
+        seznam/workload_100k_s1_c8220.json      888  17783 0.0000/0.0098/0.3399 0.0000/0.1535/1.0000 0.379840   0.0
+           ssb/workload_100k_s1_c8220.json      814  13618 0.0000/0.0013/0.3477 0.0000/0.3683/1.0000 0.474489   0.0
+    tournament/workload_100k_s1_c8220.json     7328  31452 0.0000/0.0003/0.0127 0.0000/0.4627/1.0000 0.648971   0.0
+      tpc_h_pk/workload_100k_s1_c8220.json     1336  20238 0.0000/0.0282/0.5675 0.0001/0.4000/1.0000 0.346403   0.0
+       walmart/workload_100k_s1_c8220.json     2330  37332 0.0000/0.0210/0.3337 0.0003/0.2667/1.0000 0.468752   0.0
+                                 ALL FILES    67074 591212 0.0000/0.0003/0.1006 0.0000/0.3621/1.0000 0.499694   0.0
+
+1e  Which columns do the training index scans use? (index-scan filter examples)
+    unique: distinct values cover >= 99% of the rows (primary keys and other unique columns);
+    clustered: |correlation| >= 0.9 between column order and physical row order. Both make an index
+    scan cheap even at higher selectivity; stats_found = share of examples whose column is in pg_stats.
+                                      file  n_index  n_columns  stats_found_%  unique_%  clustered_%  unique_or_clustered_%                                                                                           top_columns
+       airline/workload_100k_s1_c8220.json     1265          7          100.0     100.0        100.0                  100.0                           l_airport.code (388), l_unique_carriers.code (356), l_airport_id.code (140)
+      baseball/workload_100k_s1_c8220.json     3587         34          100.0      24.1         34.8                   52.6                     teams.teamid (604), schoolsplayers.playerid (467), teamsfranchises.franchid (326)
+    basketball/workload_100k_s1_c8220.json     1825         10          100.0      69.0         53.9                   76.0                        players.playerid (403), awards_coaches.id (403), awards_players.playerid (268)
+carcinogenesis/workload_100k_s1_c8220.json     9853          6          100.0     100.0         63.3                  100.0                                             canc.drug_id (3410), sbond_2.id (1622), sbond_7.id (1584)
+        credit/workload_100k_s1_c8220.json     1084          7          100.0     100.0        100.0                  100.0                        charge.charge_no (402), payment.payment_no (223), statement.statement_no (217)
+      employee/workload_100k_s1_c8220.json     3584          6          100.0      35.6         99.9                   99.9                                   employees.emp_no (1274), dept_emp.emp_no (975), titles.emp_no (738)
+          fhnk/workload_100k_s1_c8220.json     1292          4          100.0      40.3         98.5                   98.5 pripady.identifikace_pripadu (521), vykony.identifikace_pripadu (400), zup.identifikace_pripadu (351)
+     financial/workload_100k_s1_c8220.json     8996          8          100.0     100.0        100.0                  100.0                               client.client_id (1625), account.account_id (1527), disp.disp_id (1524)
+        geneea/workload_100k_s1_c8220.json     5421          8          100.0     100.0        100.0                  100.0                       funkce.id_funkce (1108), hl_hlasovani.id_hlasovani (847), organy.id_organ (796)
+        genome/workload_100k_s1_c8220.json     4471         10          100.0      28.1        100.0                  100.0                      img_obj_att.img_id (1622), img_rel.img_id (1447), att_classes.att_class_id (453)
+     hepatitis/workload_100k_s1_c8220.json     6902          7          100.0      71.1        100.0                  100.0                                              rel11.b_id (1992), rel13.a_id (1917), rel12.in_id (1827)
+     movielens/workload_100k_s1_c8220.json     6098          9          100.0      53.6        100.0                  100.0                   directors.directorid (1300), movies.movieid (1193), movies2directors.movieid (1189)
+        seznam/workload_100k_s1_c8220.json      888          2          100.0      60.7        100.0                  100.0                                     client.client_id (539), probehnuto_mimo_penezenku.client_id (349)
+           ssb/workload_100k_s1_c8220.json      814          3          100.0     100.0        100.0                  100.0                              customer.c_custkey (387), supplier.s_suppkey (269), part.p_partkey (158)
+    tournament/workload_100k_s1_c8220.json     7328         22          100.0      55.6         85.7                   93.6                                teams.team_id (2504), seasons.season (991), tourney_seeds.season (827)
+      tpc_h_pk/workload_100k_s1_c8220.json     1336          8          100.0      73.4         88.8                   88.8                          supplier.s_suppkey (349), orders.o_orderkey (287), partsupp.ps_partkey (195)
+       walmart/workload_100k_s1_c8220.json     2330          2          100.0      26.7         73.3                  100.0                                                           train.store_nbr (1708), key.store_nbr (622)
+                                 ALL FILES    67074        149          100.0      70.1         87.1                   95.9                                    canc.drug_id (3410), teams.team_id (2504), client.client_id (2164)
+
+    Evaluation columns of the access-path task (Table 3), with their training index-scan examples:
+                                file                   column    n_distinct  unique  correlation  clustered  train_index_examples
+baseball/workload_100k_s1_c8220.json               batting.AB    682.000000     0.0        0.010        0.0                     0
+baseball/workload_100k_s1_c8220.json        batting.G_batting    166.000000     0.0        0.018        0.0                     0
+baseball/workload_100k_s1_c8220.json        halloffame.needed     60.000000     0.0        0.022        0.0                     0
+baseball/workload_100k_s1_c8220.json               managers.L    118.000000     0.0        0.044        0.0                     0
+baseball/workload_100k_s1_c8220.json               managers.W    114.000000     0.0        0.039        0.0                     0
+baseball/workload_100k_s1_c8220.json           managershalf.L     33.000000     0.0        0.031        0.0                     0
+baseball/workload_100k_s1_c8220.json           managershalf.W     40.000000     0.0        0.015        0.0                     0
+tpc_h_pk/workload_100k_s1_c8220.json lineitem.l_extendedprice     -0.125545     0.0        0.003        0.0                     0
+tpc_h_pk/workload_100k_s1_c8220.json       lineitem.l_partkey 192755.000000     0.0       -0.002        0.0                     0
+tpc_h_pk/workload_100k_s1_c8220.json       part.p_retailprice     -0.102585     0.0        0.178        0.0                     0
+tpc_h_pk/workload_100k_s1_c8220.json              part.p_size     50.000000     0.0        0.025        0.0                     0
+tpc_h_pk/workload_100k_s1_c8220.json     partsupp.ps_availqty   9973.000000     0.0        0.007        0.0                     0
+tpc_h_pk/workload_100k_s1_c8220.json      partsupp.ps_partkey     -0.246791     0.0        1.000        1.0                   195
+tpc_h_pk/workload_100k_s1_c8220.json      partsupp.ps_suppkey  10018.000000     0.0        0.007        0.0                   146
+tpc_h_pk/workload_100k_s1_c8220.json   partsupp.ps_supplycost     -0.111554     0.0       -0.007        0.0                     0
+
+1d  Timeouts: are timed-out training queries different? (operators from EXPLAIN without ANALYZE)
+                                      file  queries  timeouts  timeouts_with_plan  has_nl_timeout_%  has_nl_completed_%  has_nl_fisher_p  has_index_timeout_%  has_index_completed_%  has_index_fisher_p
+     accidents/workload_100k_s1_c8220.json   100000         0                   0               NaN              5.4274              NaN                  NaN                 3.7464                 NaN
+       airline/workload_100k_s1_c8220.json    24984         0                   0               NaN             42.4143              NaN                  NaN                47.0886                 NaN
+      baseball/workload_100k_s1_c8220.json    39416         0                   0               NaN             38.2020              NaN                  NaN                41.9607                 NaN
+    basketball/workload_100k_s1_c8220.json    29403         0                   0               NaN             60.5093              NaN                  NaN                63.4204                 NaN
+carcinogenesis/workload_100k_s1_c8220.json   100000         0                   0               NaN             34.9773              NaN                  NaN                51.6810                 NaN
+      consumer/workload_100k_s1_c8220.json    92371         0                   0               NaN              2.0121              NaN                  NaN                 1.9989                 NaN
+        credit/workload_100k_s1_c8220.json    28439         0                   0               NaN             10.4914              NaN                  NaN                15.6054                 NaN
+      employee/workload_100k_s1_c8220.json    47958         0                   0               NaN             66.7834              NaN                  NaN                70.9371                 NaN
+          fhnk/workload_100k_s1_c8220.json    19499         0                   0               NaN             40.4021              NaN                  NaN                49.0794                 NaN
+     financial/workload_100k_s1_c8220.json    39452         0                   0               NaN             25.7959              NaN                  NaN                41.8382                 NaN
+        geneea/workload_100k_s1_c8220.json   100000         0                   0               NaN             48.9912              NaN                  NaN                54.5989                 NaN
+        genome/workload_100k_s1_c8220.json    23053         0                   0               NaN             54.6523              NaN                  NaN                68.4596                 NaN
+     hepatitis/workload_100k_s1_c8220.json   100000         0                   0               NaN             30.8750              NaN                  NaN                55.7031                 NaN
+     movielens/workload_100k_s1_c8220.json    37211         0                   0               NaN             28.7614              NaN                  NaN                46.9005                 NaN
+        seznam/workload_100k_s1_c8220.json    18261         0                   0               NaN             33.0048              NaN                  NaN                53.7265                 NaN
+           ssb/workload_100k_s1_c8220.json    14428         0                   0               NaN             18.5819              NaN                  NaN                35.6182                 NaN
+    tournament/workload_100k_s1_c8220.json    30422         0                   0               NaN             30.3502              NaN                  NaN                48.0677                 NaN
+      tpc_h_pk/workload_100k_s1_c8220.json    19509        53                  53             100.0             61.2819              0.0                100.0                68.4365                 0.0
+       walmart/workload_100k_s1_c8220.json    31202         0                   0               NaN             34.3856              NaN                  NaN                23.8158                 NaN
+                                 ALL FILES   895608        53                  53             100.0             39.2582              0.0                100.0                47.6922                 0.0
+
+1c and the leakage check skipped: need --ref_index_runs and --ref_seq_runs

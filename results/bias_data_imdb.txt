@@ -1,0 +1,113 @@
+# 2026-11-01 12:08:17
+# command: python scripts/bias_data.py --imdb_train_runs lcm-eval/data/runs/raw/imdb/workload_100k_s1_c8220.json --ref_index_runs lcm-eval/data/runs/raw/imdb/index_retraining/index_retraining.json --ref_seq_runs lcm-eval/data/runs/raw/imdb/seq_retraining/seq_retraining.json --out results/bias_data_imdb.txt
+# python 3.12.11, numpy 2.5.4, pandas 3.1.0, scipy 1.18.1, ijson yes
+
+
+====================================================================================================
+TEST 1: IS THE TRAINING DATA BIASED?
+====================================================================================================
+
+Reading training run files:
+  imdb/workload_100k_s1_c8220.json: 22899 queries read, 58 tables with sizes
+
+1a  Composition of the scans in the training plans
+    all = every executed scan node; filter = scans that filter a base table once (see 1b/1c).
+                            file  scans     n  seq_%     seq_ci95  index_%   index_ci95  bitmap_% bitmap_ci95
+imdb/workload_100k_s1_c8220.json    all 48411   81.4 [81.0, 81.7]     18.2 [17.9, 18.5]       0.4  [0.4, 0.5]
+imdb/workload_100k_s1_c8220.json filter 22527   86.9 [86.5, 87.3]     12.5 [12.1, 12.9]       0.6  [0.5, 0.7]
+
+1b  Selectivity (rows returned / table rows) of filter scans: index vs sequential
+    H0: both come from the same distribution (two-sample Kolmogorov-Smirnov).
+                            file  n_index  n_seq    index_p10/p50/p90      seq_p10/p50/p90     KS_D  KS_p
+imdb/workload_100k_s1_c8220.json     2811  19577 0.0000/0.0469/0.3555 0.0000/0.3564/1.0000 0.421943   0.0
+
+1e  Which columns do the training index scans use? (index-scan filter examples)
+    unique: distinct values cover >= 99% of the rows (primary keys and other unique columns);
+    clustered: |correlation| >= 0.9 between column order and physical row order. Both make an index
+    scan cheap even at higher selectivity; stats_found = share of examples whose column is in pg_stats.
+                            file  n_index  n_columns  stats_found_%  unique_%  clustered_%  unique_or_clustered_%                                                          top_columns
+imdb/workload_100k_s1_c8220.json     2811         12          100.0     100.0         96.8                  100.0 movie_companies.id (521), movie_keyword.id (433), cast_info.id (427)
+
+    Evaluation columns of the access-path task (Table 3), with their training index-scan examples:
+                            file                column    n_distinct  unique  correlation  clustered  train_index_examples
+imdb/workload_100k_s1_c8220.json    aka_name.person_id     -0.429871     0.0        0.047        0.0                     0
+imdb/workload_100k_s1_c8220.json    cast_info.nr_order    145.000000     0.0       -0.007        0.0                     0
+imdb/workload_100k_s1_c8220.json    cast_info.movie_id 938511.000000     0.0        0.000        0.0                     0
+imdb/workload_100k_s1_c8220.json person_info.person_id 120497.000000     0.0        0.400        0.0                     0
+imdb/workload_100k_s1_c8220.json      title.episode_nr   1224.000000     0.0        0.038        0.0                     0
+imdb/workload_100k_s1_c8220.json title.production_year    123.000000     0.0       -0.152        0.0                     0
+
+1d  Timeouts: are timed-out training queries different? (operators from EXPLAIN without ANALYZE)
+                            file  queries  timeouts  timeouts_with_plan  has_nl_timeout_%  has_nl_completed_%  has_nl_fisher_p  has_index_timeout_%  has_index_completed_%  has_index_fisher_p
+imdb/workload_100k_s1_c8220.json    22899         0                   0               NaN             22.8465              NaN                  NaN                41.6466                 NaN
+    No timed-out queries are stored in these files, so 1d cannot be tested with them.
+
+Reading the retraining (reference) run files:
+  index-scan file: {'queries': 780, 'hint not applied (seq scan)': 46, 'no plan': 1}
+  seq-scan file:   {'queries': 729, 'no plan': 1}
+  paired queries (same SQL in both files): 661; usable: 661; dropped: {}
+
+Leakage check for Test 3a: retraining queries that filter on the IMDB evaluation columns of Fig. 14
+  aka_name.person_id           queries filtering on it:   27   on its table:   44
+  cast_info.nr_order           queries filtering on it:    9   on its table:   55
+  cast_info.movie_id           queries filtering on it:   14   on its table:   55
+  person_info.person_id        queries filtering on it:   22   on its table:   51
+  title.episode_nr             queries filtering on it:    5   on its table:   37
+  title.production_year        queries filtering on it:    9   on its table:   37
+  (661 usable retraining queries in total)
+
+1c  Missing negative examples: index-scan examples in the region where an index scan is slower
+
+  Crossover selectivity s* (index faster iff s <= s*), from the retraining queries (levels with at least 20 queries):
+          table        column   n  s_star  rule_accuracy
+   (all tables) (all columns) 661  0.2483         0.8139
+       aka_name (all columns)  44  0.4505         0.8636
+       aka_name            id  20  0.6059         1.0000
+       aka_name     person_id  24  0.3508         0.9583
+      cast_info (all columns)  55  0.2494         0.8182
+      char_name (all columns)  32  0.2028         1.0000
+      char_name            id  32  0.2028         1.0000
+   company_name (all columns)  27  0.1827         1.0000
+   company_name            id  27  0.1827         1.0000
+      info_type (all columns)  33  0.8494         0.6364
+      info_type            id  33  0.8494         0.6364
+        keyword (all columns)  87  0.2093         1.0000
+        keyword            id  87  0.2093         1.0000
+movie_companies (all columns)  55  0.4148         0.8545
+movie_companies      movie_id  22  0.3271         1.0000
+     movie_info (all columns)  68  0.3992         0.9265
+     movie_info      movie_id  32  0.2799         1.0000
+ movie_info_idx (all columns)  66  0.5406         1.0000
+ movie_info_idx            id  31  0.5127         1.0000
+ movie_info_idx      movie_id  25  0.5406         1.0000
+  movie_keyword (all columns)  69  0.1968         0.8406
+  movie_keyword    keyword_id  34  0.1725         1.0000
+    person_info (all columns)  51  0.5344         0.9020
+    person_info  info_type_id  20  0.2965         1.0000
+          title (all columns)  37  0.2866         0.8649
+
+  Check of the rule on the retraining queries (in-sample, so optimistic): 's > s*' agrees with 'index scan slower' for 91.4% of the queries.
+  Training index-scan filter examples: 2811; on tables covered by the retraining queries: 2695
+  crossover level used for the training examples: {'table': 1872, 'column': 823}
+                      scope  train_n  train_harmful  train_share       train_ci95  train_upper95  ref_n  ref_harmful  ref_share  ref_share_true  fisher_p_less
+         all covered tables     2695            791       0.2935 [0.2764, 0.3111]         0.3083    591          382     0.6464          0.6058            0.0
+column-level crossover only      823            264       0.3208 [0.2890, 0.3539]         0.3486    256          164     0.6406          0.6445            0.0
+
+  Where the training index-scan examples are (by table and indexed column):
+            rel col   n  harmful crossover_level  s_star  median_s
+movie_companies  id 521       43           table  0.4148    0.2104
+  movie_keyword  id 433      223           table  0.1968    0.2024
+      cast_info  id 427      186           table  0.2494    0.2281
+    person_info  id 421       43           table  0.5344    0.2715
+        keyword  id 228      147          column  0.2093    0.2798
+ movie_info_idx  id 210        2          column  0.5127    0.2034
+       aka_name  id 193        0          column  0.6059    0.2607
+      char_name  id 104       64          column  0.2028    0.3039
+   company_name  id  88       51          column  0.1827    0.2167
+          title  id  67       31           table  0.2866    0.2373
+     movie_info  id   3        1           table  0.3992    0.0004
+  train_share: share of the training index-scan examples above s* (the 'negative examples');
+  train_upper95: one-sided 95% Clopper-Pearson upper bound on that share;
+  ref_share: same share in the retraining queries (index plans forced at all selectivities);
+  ref_share_true: share of retraining queries where the index scan was actually slower;
+  fisher_p_less: H0 the training share is not smaller than the retraining share.

@@ -1,0 +1,418 @@
+# 2026-10-26 09:19:05
+# command: python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --out results/sigtests_paper.txt
+# python 3.12.11, numpy 2.5.4, pandas 3.1.0, scipy 1.18.1; bootstrap seed 0
+
+
+====================================================================================================
+TASK 1: JOIN ORDERING (JOB-light, IMDB) - Fig. 1, Fig. 4
+====================================================================================================
+models found: postgres, flat, mscn, e2e, qppnet, query_former, zeroshot, dace, postgres_16, flat_act_cards, qppnet_act_cards, zeroshot_act_card, dace_act_cards
+queries evaluated by all models: 58 (paper text says JOB-light has 70)
+  WARNING: qppnet sees a different optimum for some queries (different candidate sets)
+     job_light_1: 11 plans vs 12 for PG10 (optimum present)
+     job_light_10: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_11: 9 plans vs 9 for PG10 (optimum present)
+     job_light_12: 8 plans vs 8 for PG10 (PG10's optimum missing)
+     job_light_13: 9 plans vs 9 for PG10 (PG10's optimum missing)
+     job_light_14: 5 plans vs 5 for PG10 (PG10's optimum missing)
+     job_light_15: 4 plans vs 4 for PG10 (PG10's optimum missing)
+     job_light_16: 9 plans vs 9 for PG10 (PG10's optimum missing)
+     job_light_17: 5 plans vs 5 for PG10 (PG10's optimum missing)
+     job_light_19: 1 plans vs 1 for PG10 (optimum present)
+     job_light_2: 12 plans vs 12 for PG10 (optimum present)
+     job_light_20: 1 plans vs 1 for PG10 (PG10's optimum missing)
+     job_light_21: 1 plans vs 1 for PG10 (PG10's optimum missing)
+     job_light_22: 11 plans vs 11 for PG10 (PG10's optimum missing)
+     job_light_23: 12 plans vs 12 for PG10 (optimum present)
+     job_light_24: 12 plans vs 12 for PG10 (optimum present)
+     job_light_25: 12 plans vs 12 for PG10 (optimum present)
+     job_light_26: 10 plans vs 11 for PG10 (optimum present)
+     job_light_27: 8 plans vs 8 for PG10 (PG10's optimum missing)
+     job_light_28: 6 plans vs 6 for PG10 (PG10's optimum missing)
+     job_light_29: 2 plans vs 1 for PG10 (optimum present)
+     job_light_3: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_30: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_31: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_32: 12 plans vs 12 for PG10 (optimum present)
+     job_light_33: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_34: 101 plans vs 101 for PG10 (PG10's optimum missing)
+     job_light_35: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_36: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_37: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_38: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_4: 12 plans vs 12 for PG10 (optimum present)
+     job_light_41: 10 plans vs 12 for PG10 (optimum present)
+     job_light_43: 33 plans vs 30 for PG10 (optimum present)
+     job_light_44: 39 plans vs 38 for PG10 (PG10's optimum missing)
+     job_light_45: 36 plans vs 38 for PG10 (optimum present)
+     job_light_46: 23 plans vs 24 for PG10 (PG10's optimum missing)
+     job_light_47: 83 plans vs 84 for PG10 (optimum present)
+     job_light_49: 8 plans vs 13 for PG10 (PG10's optimum missing)
+     job_light_5: 4 plans vs 4 for PG10 (optimum present)
+     job_light_50: 1 plans vs 1 for PG10 (optimum present)
+     job_light_51: 2 plans vs 3 for PG10 (PG10's optimum missing)
+     job_light_52: 79 plans vs 79 for PG10 (PG10's optimum missing)
+     job_light_53: 82 plans vs 83 for PG10 (optimum present)
+     job_light_54: 89 plans vs 91 for PG10 (PG10's optimum missing)
+     job_light_55: 1368 plans vs 1379 for PG10 (PG10's optimum missing)
+     job_light_6: 4 plans vs 4 for PG10 (PG10's optimum missing)
+     job_light_61: 121 plans vs 140 for PG10 (optimum present)
+     job_light_62: 9 plans vs 10 for PG10 (optimum present)
+     job_light_63: 17 plans vs 17 for PG10 (PG10's optimum missing)
+     job_light_64: 92 plans vs 92 for PG10 (PG10's optimum missing)
+     job_light_65: 1058 plans vs 1089 for PG10 (PG10's optimum missing)
+     job_light_66: 1153 plans vs 1171 for PG10 (PG10's optimum missing)
+     job_light_67: 1127 plans vs 1184 for PG10 (optimum present)
+     job_light_68: 1270 plans vs 1309 for PG10 (optimum present)
+     job_light_8: 12 plans vs 12 for PG10 (optimum present)
+     job_light_9: 12 plans vs 12 for PG10 (optimum present)
+  WARNING: postgres_16 sees a different optimum for some queries (different candidate sets)
+     job_light_41: 9 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_44: 34 plans vs 38 for PG10 (optimum present)
+     job_light_45: 37 plans vs 38 for PG10 (optimum present)
+     job_light_46: 23 plans vs 24 for PG10 (optimum present)
+     job_light_49: 11 plans vs 13 for PG10 (optimum present)
+     job_light_53: 82 plans vs 83 for PG10 (optimum present)
+     job_light_54: 89 plans vs 91 for PG10 (optimum present)
+     job_light_55: 1365 plans vs 1379 for PG10 (optimum present)
+     job_light_61: 114 plans vs 140 for PG10 (optimum present)
+     job_light_62: 8 plans vs 10 for PG10 (optimum present)
+     job_light_65: 1067 plans vs 1089 for PG10 (optimum present)
+     job_light_66: 1158 plans vs 1171 for PG10 (optimum present)
+     job_light_67: 1129 plans vs 1184 for PG10 (optimum present)
+     job_light_68: 1269 plans vs 1309 for PG10 (optimum present)
+  WARNING: qppnet_act_cards sees a different optimum for some queries (different candidate sets)
+     job_light_0: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_1: 11 plans vs 12 for PG10 (optimum present)
+     job_light_10: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_11: 9 plans vs 9 for PG10 (optimum present)
+     job_light_12: 8 plans vs 8 for PG10 (PG10's optimum missing)
+     job_light_13: 9 plans vs 9 for PG10 (PG10's optimum missing)
+     job_light_14: 5 plans vs 5 for PG10 (PG10's optimum missing)
+     job_light_15: 4 plans vs 4 for PG10 (PG10's optimum missing)
+     job_light_16: 9 plans vs 9 for PG10 (PG10's optimum missing)
+     job_light_17: 5 plans vs 5 for PG10 (PG10's optimum missing)
+     job_light_19: 1 plans vs 1 for PG10 (optimum present)
+     job_light_2: 12 plans vs 12 for PG10 (optimum present)
+     job_light_20: 1 plans vs 1 for PG10 (PG10's optimum missing)
+     job_light_21: 1 plans vs 1 for PG10 (PG10's optimum missing)
+     job_light_22: 11 plans vs 11 for PG10 (PG10's optimum missing)
+     job_light_23: 12 plans vs 12 for PG10 (optimum present)
+     job_light_24: 12 plans vs 12 for PG10 (optimum present)
+     job_light_25: 12 plans vs 12 for PG10 (optimum present)
+     job_light_26: 10 plans vs 11 for PG10 (optimum present)
+     job_light_27: 8 plans vs 8 for PG10 (PG10's optimum missing)
+     job_light_28: 6 plans vs 6 for PG10 (PG10's optimum missing)
+     job_light_29: 2 plans vs 1 for PG10 (optimum present)
+     job_light_3: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_30: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_31: 12 plans vs 12 for PG10 (PG10's optimum missing)
+     job_light_32: 12 plans vs 12 for PG10 (optimum present)
+     job_light_33: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_34: 101 plans vs 101 for PG10 (PG10's optimum missing)
+     job_light_35: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_36: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_37: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_38: 120 plans vs 120 for PG10 (PG10's optimum missing)
+     job_light_4: 12 plans vs 12 for PG10 (optimum present)
+     job_light_41: 10 plans vs 12 for PG10 (optimum present)
+     job_light_43: 33 plans vs 30 for PG10 (optimum present)
+     job_light_44: 39 plans vs 38 for PG10 (PG10's optimum missing)
+     job_light_45: 36 plans vs 38 for PG10 (optimum present)
+     job_light_46: 23 plans vs 24 for PG10 (PG10's optimum missing)
+     job_light_47: 83 plans vs 84 for PG10 (optimum present)
+     job_light_49: 8 plans vs 13 for PG10 (PG10's optimum missing)
+     job_light_5: 4 plans vs 4 for PG10 (optimum present)
+     job_light_50: 1 plans vs 1 for PG10 (optimum present)
+     job_light_51: 2 plans vs 3 for PG10 (PG10's optimum missing)
+     job_light_52: 79 plans vs 79 for PG10 (PG10's optimum missing)
+     job_light_53: 82 plans vs 83 for PG10 (optimum present)
+     job_light_54: 89 plans vs 91 for PG10 (PG10's optimum missing)
+     job_light_55: 1368 plans vs 1379 for PG10 (PG10's optimum missing)
+     job_light_6: 4 plans vs 4 for PG10 (PG10's optimum missing)
+     job_light_61: 121 plans vs 140 for PG10 (optimum present)
+     job_light_62: 9 plans vs 10 for PG10 (optimum present)
+     job_light_63: 17 plans vs 17 for PG10 (PG10's optimum missing)
+     job_light_64: 92 plans vs 92 for PG10 (PG10's optimum missing)
+     job_light_65: 1058 plans vs 1089 for PG10 (PG10's optimum missing)
+     job_light_66: 1153 plans vs 1171 for PG10 (PG10's optimum missing)
+     job_light_67: 1127 plans vs 1184 for PG10 (optimum present)
+     job_light_68: 1270 plans vs 1309 for PG10 (optimum present)
+     job_light_8: 12 plans vs 12 for PG10 (optimum present)
+     job_light_9: 12 plans vs 12 for PG10 (optimum present)
+
+Totals over these queries (paper: optimal 446s, Sc.PG10 518s, Zero-Shot 530s, QueryFormer 830s)
+  optimal: 445.7s
+  postgres             517.9s
+  flat                 566.4s
+  mscn                 776.2s
+  e2e                  812.0s
+  qppnet               793.6s
+  query_former         830.3s
+  zeroshot             530.5s
+  dace                 625.3s
+  postgres_16          562.9s
+  flat_act_cards       520.3s
+  qppnet_act_cards     775.4s
+  zeroshot_act_card    522.5s
+  dace_act_cards       617.9s
+
+H1 [LCM vs PG10] delta = sum_q (r_model - r_PG10) in s; bootstrap over queries
+       model  n   delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+        flat 58  48.494   14.865   88.517       5.594     104.615            26       0.001               0.169            0.002         PG10 better
+        mscn 58 258.303  176.872  349.188     149.426     383.152            58       0.000               0.083            0.000         PG10 better
+         e2e 58 294.058  188.209  408.183     149.977     455.957            58       0.000               0.074            0.000         PG10 better
+      qppnet 58 275.660  191.585  365.082     162.145     400.791            58       0.000               0.065            0.000         PG10 better
+query_former 58 312.371  226.225  403.633     193.632     439.368            58       0.000               0.070            0.000         PG10 better
+    zeroshot 58  12.560  -25.120   45.448     -41.046      58.660            58       0.055               0.194            0.055 no clear difference
+        dace 58 107.377   47.454  172.436      28.094     198.512            58       0.001               0.136            0.002         PG10 better
+
+H1 [PG version vs PG10] delta = sum_q (r_model - r_PG10) in s; bootstrap over queries
+      model  n  delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm     verdict
+postgres_16 58  44.97   20.762   75.749      20.762      75.749            22         0.0               0.228              0.0 PG10 better
+
+H2  median Q-error(LCM) - median Q-error(PG10) on the same candidate plans (negative = LCM more accurate)
+  PG10's own median Q-error on these plans: 2.998
+       model  median_qerr_diff  ci_lo  ci_hi  boot_p  boot_p_holm
+        flat            -1.578 -1.936 -0.890   0.000        0.000
+        mscn             0.854  0.140  1.979   0.015        0.015
+         e2e            -1.532 -1.887 -0.970   0.000        0.000
+      qppnet            -0.853 -1.160 -0.329   0.001        0.002
+query_former             0.502  0.209  0.929   0.000        0.000
+    zeroshot            -1.290 -1.718 -0.650   0.000        0.000
+        dace            -1.576 -2.014 -0.905   0.000        0.000
+
+Per-seed totals (the paper averages predictions over seeds before picking a plan):
+  postgres             517.9     517.9     517.9
+  flat                 592.7     568.6     544.9
+  mscn                 802.3     876.0     832.1
+  e2e                  889.1     879.7     719.7
+  qppnet               897.7     733.6     915.6
+  query_former         902.2     815.6     820.6
+  zeroshot             537.1     534.4     568.0
+  dace                 574.0     614.8     633.6
+  postgres_16          562.9     562.9     562.9
+  flat_act_cards       513.9     540.2     527.3
+  qppnet_act_cards     715.0     864.4     899.8
+  zeroshot_act_card    535.5     515.4     524.5
+  dace_act_cards       668.7     573.6     624.2
+
+H1b [LCM with actual cardinalities vs PG10 with estimated ones] delta = sum_q (r_model - r_PG10) in s
+  Fig. 4 lighter bars. The PG10/PG16 values with actual cardinalities in Fig. 5 are typed into the authors' notebook, not computed from published files, so they cannot be tested.
+            model  n   delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+   flat_act_cards 58   2.370  -37.945   42.400     -49.491      54.645            28       0.165               0.207            0.330 no clear difference
+ qppnet_act_cards 58 257.460  183.836  335.637     166.894     355.437            58       0.000               0.070            0.000         PG10 better
+zeroshot_act_card 58   4.609  -22.083   32.640     -29.293      40.891            58       0.719               0.169            0.719 no clear difference
+   dace_act_cards 58 100.039   53.779  148.067      40.537     160.517            58       0.007               0.075            0.022         PG10 better
+
+====================================================================================================
+TASK 2: ACCESS PATH SELECTION (index scan vs sequential scan) - Table 3, Fig. 14
+====================================================================================================
+columns evaluated by all models: 21 of 21 (IMDB 6, Baseball 7, TPC-H 8)
+selectivities per column: [10, 11]
+
+Mean balanced accuracy over the columns (paper Table 3: Sc. PG10, Sc. PG16, DACE about 0.64) and total selected runtime:
+  optimal           B = 1.000   runtime     138.07
+  postgres          B = 0.638   runtime     153.57
+  postgres_16       B = 0.632   runtime     153.58
+  flat              B = 0.567   runtime     312.02
+  mscn              B = 0.454   runtime     293.13
+  e2e               B = 0.473   runtime     324.24
+  qppnet            B = 0.537   runtime     173.08
+  query_former      B = 0.497   runtime     297.16
+  zeroshot          B = 0.457   runtime     316.00
+  dace              B = 0.639   runtime     154.80
+
+T2a [LCM vs PG10] balanced accuracy: delta = mean over columns of (B_LCM - B_PG10); bootstrap over columns
+       model  n  delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+        flat 21 -0.071   -0.175    0.041      -0.214       0.086            20       0.247               0.103            0.494 no clear difference
+        mscn 21 -0.183   -0.275   -0.100      -0.312      -0.071            19       0.001               0.179            0.006         PG10 better
+         e2e 21 -0.165   -0.238   -0.095      -0.264      -0.069            18       0.001               0.129            0.006         PG10 better
+      qppnet 21 -0.100   -0.167   -0.033      -0.191      -0.008            17       0.021               0.165            0.063         PG10 better
+query_former 21 -0.140   -0.218   -0.060      -0.244      -0.032            16       0.005               0.146            0.019         PG10 better
+    zeroshot 21 -0.180   -0.253   -0.115      -0.281      -0.095            18       0.000               0.130            0.002         PG10 better
+        dace 21  0.002   -0.020    0.024      -0.031       0.032             4         NaN               0.308            1.000 no clear difference
+
+T2a [PG16 vs PG10] balanced accuracy
+      model  n  delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+postgres_16 21 -0.006   -0.018      0.0      -0.018         0.0             1         NaN                 1.0              1.0 no clear difference
+
+T2b [LCM vs PG10] selected runtime: delta = sum over columns of (runtime_LCM - runtime_PG10); bootstrap over columns
+       model  n   delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+        flat 21 158.448    9.913  397.176       4.883     524.000            21       0.001               0.685            0.003         PG10 better
+        mscn 21 139.565   15.908  365.839       8.946     472.942            21       0.000               0.782            0.000         PG10 better
+         e2e 21 170.675   20.199  416.697      11.623     562.476            20       0.000               0.662            0.001         PG10 better
+      qppnet 21  19.515  -15.068   65.648     -25.663      85.165            20       0.002               0.527            0.003 no clear difference
+query_former 21 143.595    9.741  374.834       4.529     485.461            17       0.001               0.757            0.003         PG10 better
+    zeroshot 21 162.436   20.183  395.635       9.910     513.981            21       0.000               0.647            0.000         PG10 better
+        dace 21   1.234   -0.073    3.762      -0.104       5.030             6       0.345               0.957            0.345 no clear difference
+
+T2b [PG16 vs PG10] selected runtime
+      model  n  delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+postgres_16 21  0.015      0.0    0.046         0.0       0.046             1         NaN                 1.0              1.0 no clear difference
+
+Fig. 14 skipped: lcm-eval/data/retraining_evaluation not found (fine-tuned predictions not downloaded)
+
+====================================================================================================
+TASK 3: PHYSICAL OPERATOR SELECTION (hash vs merge vs index nested-loop join) - Fig. 11, Section 6.6
+====================================================================================================
+
+IMDB: 100 queries evaluated by all models, 0 excluded (median Q-error > 1e5 for some model, as in the authors' notebook), 100 used
+  optimal           runtime     270.79   pick rate 100.0%
+  postgres          runtime     351.09   pick rate  60.0%
+  postgres_16       runtime     360.82   pick rate  55.0%
+  flat              runtime     587.52   pick rate  47.0%
+  mscn              runtime     423.76   pick rate  42.0%
+  e2e               runtime     442.15   pick rate  45.0%
+  qppnet            runtime     613.20   pick rate  40.0%
+  query_former      runtime     654.53   pick rate  39.0%
+  zeroshot          runtime     601.50   pick rate  56.0%
+  dace              runtime     382.53   pick rate  82.0%
+
+TPC-H: 100 queries evaluated by all models, 4 excluded (median Q-error > 1e5 for some model, as in the authors' notebook), 96 used
+  note: labels differ by >1% from Flat Vector's for: postgres_16
+  optimal           runtime      32.84   pick rate 100.0%
+  postgres          runtime      40.40   pick rate  66.7%
+  postgres_16       runtime      40.52   pick rate  70.8%
+  flat              runtime      51.52   pick rate  37.5%
+  mscn              runtime      63.00   pick rate  30.2%
+  e2e               runtime      57.55   pick rate  50.0%
+  qppnet            runtime      51.09   pick rate  76.0%
+  query_former      runtime      75.78   pick rate  59.4%
+  zeroshot          runtime      60.63   pick rate  38.5%
+  dace              runtime      36.09   pick rate  60.4%
+
+Baseball: 100 queries evaluated by all models, 12 excluded (median Q-error > 1e5 for some model, as in the authors' notebook), 88 used
+  note: labels differ by >1% from Flat Vector's for: postgres, postgres_16
+  optimal           runtime       7.32   pick rate 100.0%
+  postgres          runtime       8.41   pick rate  72.7%
+  postgres_16       runtime       8.41   pick rate  73.9%
+  flat              runtime      58.84   pick rate  37.5%
+  mscn              runtime      13.80   pick rate  47.7%
+  e2e               runtime     100.94   pick rate  48.9%
+  qppnet            runtime       9.10   pick rate  67.0%
+  query_former      runtime      19.87   pick rate  55.7%
+  zeroshot          runtime      52.85   pick rate  42.0%
+  dace              runtime      11.24   pick rate  59.1%
+
+[Fig. 11: LCM vs PG10] selected runtime: delta = sum_q (r_model - r_PG10); bootstrap over queries
+ dataset        model   n   delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+    IMDB         flat 100 236.431  109.572  390.797      60.439     490.236            71       0.001               0.133            0.010         PG10 better
+    IMDB         mscn 100  72.672    1.812  176.458     -15.694     247.613            53       0.001               0.326            0.014 no clear difference
+    IMDB          e2e 100  91.060   15.307  171.723     -22.198     214.561            82       0.002               0.080            0.016 no clear difference
+    IMDB       qppnet 100 262.113  129.757  419.504      78.744     533.482            77       0.000               0.126            0.002         PG10 better
+    IMDB query_former 100 303.439  166.671  467.294      99.340     551.647            85       0.000               0.107            0.000         PG10 better
+    IMDB     zeroshot 100 250.410  112.461  407.144      59.971     506.809            68       0.023               0.125            0.091         PG10 better
+    IMDB         dace 100  31.438  -33.304  126.799     -50.946     197.090            39       0.003               0.348            0.022 no clear difference
+   TPC-H         flat  96  11.119   -4.229   29.818     -11.446      42.740            53       0.000               0.305            0.001 no clear difference
+   TPC-H         mscn  96  22.605    9.313   42.612       5.564      55.581            58       0.000               0.314            0.000         PG10 better
+   TPC-H          e2e  96  17.151    1.231   36.063      -5.809      49.028            60       0.015               0.239            0.080 no clear difference
+   TPC-H       qppnet  96  10.689   -4.419   29.432     -11.823      43.828            47       0.891               0.301            0.891 no clear difference
+   TPC-H query_former  96  35.380   12.894   62.156       2.783      81.467            64       0.013               0.164            0.080         PG10 better
+   TPC-H     zeroshot  96  20.231   -0.065   45.470      -8.131      63.803            51       0.001               0.240            0.010 no clear difference
+   TPC-H         dace  96  -4.309  -16.481    3.342     -25.634       6.019            50       0.197               0.471            0.395 no clear difference
+Baseball         flat  88  50.430    3.012  138.561       0.071     216.381            51       0.000               0.777            0.000         PG10 better
+Baseball         mscn  88   5.392   -0.569   15.515      -2.095      24.088            39       0.000               0.643            0.000 no clear difference
+Baseball          e2e  88  92.532    5.584  217.885       1.654     304.274            37       0.000               0.442            0.001         PG10 better
+Baseball       qppnet  88   0.688   -1.539    2.599      -3.016       3.487            42       0.090               0.275            0.271 no clear difference
+Baseball query_former  88  11.453    0.683   26.523      -1.187      36.398            35       0.001               0.381            0.014 no clear difference
+Baseball     zeroshot  88  44.440    1.435  127.131      -0.250     207.298            46       0.000               0.878            0.000 no clear difference
+Baseball         dace  88   2.826    0.534    6.216      -0.111       9.046            38       0.003               0.411            0.022 no clear difference
+
+[Fig. 11: LCM vs PG10] pick rate (share of queries where the optimal join operator was picked); exact McNemar test, Holm across the family
+ dataset        model   n  pick_lcm  pick_pg10  delta  ci95_lo  ci95_hi  only_lcm_optimal  only_pg10_optimal  mcnemar_p  mcnemar_p_holm             verdict
+    IMDB         flat 100     0.470      0.600 -0.130   -0.270    0.010                19                 32      0.092           0.638 no clear difference
+    IMDB         mscn 100     0.420      0.600 -0.180   -0.300   -0.050                13                 31      0.010           0.118 no clear difference
+    IMDB          e2e 100     0.450      0.600 -0.150   -0.310    0.010                27                 42      0.091           0.638 no clear difference
+    IMDB       qppnet 100     0.400      0.600 -0.200   -0.340   -0.060                17                 37      0.009           0.118 no clear difference
+    IMDB query_former 100     0.390      0.600 -0.210   -0.370   -0.050                24                 45      0.015           0.154 no clear difference
+    IMDB     zeroshot 100     0.560      0.600 -0.040   -0.180    0.100                24                 28      0.678           1.000 no clear difference
+    IMDB         dace 100     0.820      0.600  0.220    0.130    0.320                25                  3      0.000           0.000          LCM better
+   TPC-H         flat  96     0.375      0.667 -0.292   -0.406   -0.177                 7                 35      0.000           0.000         PG10 better
+   TPC-H         mscn  96     0.302      0.667 -0.365   -0.490   -0.240                 9                 44      0.000           0.000         PG10 better
+   TPC-H          e2e  96     0.500      0.667 -0.167   -0.312   -0.021                19                 35      0.040           0.362 no clear difference
+   TPC-H       qppnet  96     0.760      0.667  0.094   -0.042    0.229                26                 17      0.222           1.000 no clear difference
+   TPC-H query_former  96     0.594      0.667 -0.073   -0.219    0.083                25                 32      0.427           1.000 no clear difference
+   TPC-H     zeroshot  96     0.385      0.667 -0.281   -0.406   -0.146                11                 38      0.000           0.002         PG10 better
+   TPC-H         dace  96     0.604      0.667 -0.062   -0.188    0.062                15                 21      0.405           1.000 no clear difference
+Baseball         flat  88     0.375      0.727 -0.352   -0.477   -0.227                 7                 38      0.000           0.000         PG10 better
+Baseball         mscn  88     0.477      0.727 -0.250   -0.375   -0.125                 7                 29      0.000           0.005         PG10 better
+Baseball          e2e  88     0.489      0.727 -0.239   -0.364   -0.114                 8                 29      0.001           0.011         PG10 better
+Baseball       qppnet  88     0.670      0.727 -0.057   -0.193    0.080                17                 22      0.522           1.000 no clear difference
+Baseball query_former  88     0.557      0.727 -0.170   -0.295   -0.045                 9                 24      0.014           0.149 no clear difference
+Baseball     zeroshot  88     0.420      0.727 -0.307   -0.432   -0.182                 7                 34      0.000           0.000         PG10 better
+Baseball         dace  88     0.591      0.727 -0.136   -0.261   -0.011                11                 23      0.058           0.461 no clear difference
+
+[Fig. 11: PG16 vs PG10] selected runtime: delta = sum_q (r_model - r_PG10); bootstrap over queries
+ dataset       model   n  delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm             verdict
+    IMDB postgres_16 100  9.728    0.903   21.555       0.821      25.361             5         NaN               0.477             1.00         PG10 better
+   TPC-H postgres_16  96  0.124   -0.004    0.333      -0.006       0.378             8       0.123               0.648             0.37 no clear difference
+Baseball postgres_16  88 -0.001   -0.002    0.000      -0.002       0.000             1         NaN               1.000             1.00 no clear difference
+
+[Fig. 11: PG16 vs PG10] pick rate (share of queries where the optimal join operator was picked); exact McNemar test, Holm across the family
+ dataset       model   n  pick_lcm  pick_pg10  delta  ci95_lo  ci95_hi  only_lcm_optimal  only_pg10_optimal  mcnemar_p  mcnemar_p_holm             verdict
+    IMDB postgres_16 100     0.550      0.600 -0.050    -0.10   -0.010                 0                  5      0.062           0.188 no clear difference
+   TPC-H postgres_16  96     0.708      0.667  0.042    -0.01    0.104                 6                  2      0.289           0.578 no clear difference
+Baseball postgres_16  88     0.739      0.727  0.011     0.00    0.034                 1                  0      1.000           1.000 no clear difference
+
+Section 6.6 (IMDB with indexes on the filter columns): 100 queries
+  optimal           runtime     160.00   pick rate 100.0%
+  postgres          runtime     325.57   pick rate  33.0%
+  postgres_16       runtime     345.00   pick rate  24.0%
+  flat              runtime     245.10   pick rate  26.0%
+  e2e               runtime     216.36   pick rate  60.0%
+  query_former      runtime     210.26   pick rate  54.0%
+  zeroshot          runtime     229.48   pick rate  48.0%
+  dace              runtime     212.13   pick rate  61.0%
+
+[Section 6.6: LCM vs PG10] selected runtime: delta = sum_q (r_model - r_PG10); bootstrap over queries
+     dataset        model   n    delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm    verdict
+IMDB+indexes         flat 100  -80.465 -134.470  -32.750    -152.519     -20.192            91       0.800               0.091            0.800 LCM better
+IMDB+indexes          e2e 100 -109.202 -157.188  -65.402    -172.584     -52.110            78       0.000               0.067            0.000 LCM better
+IMDB+indexes query_former 100 -115.306 -168.787  -66.440    -186.263     -53.887            83       0.004               0.077            0.013 LCM better
+IMDB+indexes     zeroshot 100  -96.089 -144.952  -52.153    -162.084     -39.974            90       0.033               0.097            0.066 LCM better
+IMDB+indexes         dace 100 -113.440 -167.140  -66.190    -185.681     -52.936            73       0.000               0.093            0.000 LCM better
+
+[Section 6.6: LCM vs PG10] pick rate (share of queries where the optimal join operator was picked); exact McNemar test, Holm across the family
+     dataset        model   n  pick_lcm  pick_pg10  delta  ci95_lo  ci95_hi  only_lcm_optimal  only_pg10_optimal  mcnemar_p  mcnemar_p_holm             verdict
+IMDB+indexes         flat 100      0.26       0.33  -0.07    -0.21     0.07                23                 30      0.410           0.410 no clear difference
+IMDB+indexes          e2e 100      0.60       0.33   0.27     0.13     0.41                42                 15      0.000           0.002          LCM better
+IMDB+indexes query_former 100      0.54       0.33   0.21     0.06     0.36                41                 20      0.010           0.030          LCM better
+IMDB+indexes     zeroshot 100      0.48       0.33   0.15     0.00     0.30                39                 24      0.077           0.154 no clear difference
+IMDB+indexes         dace 100      0.61       0.33   0.28     0.15     0.41                39                 11      0.000           0.000          LCM better
+
+[Section 6.6: PG16 vs PG10] selected runtime: delta = sum_q (r_model - r_PG10); bootstrap over queries
+     dataset       model   n  delta  ci95_lo  ci95_hi  fwer_ci_lo  fwer_ci_hi  units_differ  wilcoxon_p  largest_unit_share  wilcoxon_p_holm     verdict
+IMDB+indexes postgres_16 100 19.437    6.787   36.072       6.787      36.072            13       0.001               0.298            0.001 PG10 better
+
+[Section 6.6: PG16 vs PG10] pick rate (share of queries where the optimal join operator was picked); exact McNemar test, Holm across the family
+     dataset       model   n  pick_lcm  pick_pg10  delta  ci95_lo  ci95_hi  only_lcm_optimal  only_pg10_optimal  mcnemar_p  mcnemar_p_holm     verdict
+IMDB+indexes postgres_16 100      0.24       0.33  -0.09    -0.15    -0.04                 0                  9      0.004           0.004 PG10 better
+
+====================================================================================================
+SUMMARY: every LCM-vs-PG10 comparison (paper's claim: no LCM significantly beats PostgreSQL in any task)
+====================================================================================================
+verdict                                                     PG10 better  no clear difference  LCM better
+task            comparison               metric                                                         
+1 join order    LCM (act. card.) vs PG10 selected runtime             2                    2           0
+                LCM vs PG10              selected runtime             6                    1           0
+2 access path   LCM vs PG10              balanced accuracy            5                    2           0
+                                         selected runtime             5                    2           0
+3 join operator Fig. 11: LCM vs PG10     pick rate                    7                   13           1
+                                         selected runtime             8                   13           0
+                Section 6.6: LCM vs PG10 pick rate                    0                    2           3
+                                         selected runtime             0                    0           5
+
+Comparisons where an LCM is significantly better than PG10 (after family-wise correction): 9
+           task               comparison      dataset           metric        model    verdict
+3 join operator     Fig. 11: LCM vs PG10         IMDB        pick rate         dace LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes selected runtime         flat LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes selected runtime          e2e LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes selected runtime query_former LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes selected runtime     zeroshot LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes selected runtime         dace LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes        pick rate          e2e LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes        pick rate query_former LCM better
+3 join operator Section 6.6: LCM vs PG10 IMDB+indexes        pick rate         dace LCM better
+
+Verdicts: runtime and balanced accuracy use the bootstrap interval at level 1 - 0.05/k (k = comparisons in the family; none below 10 units); pick rate uses the Holm-adjusted exact McNemar test.
