@@ -20,3 +20,4 @@ module-name = "lcm_recheck"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]          # never collect the authors' tests under lcm-eval/
+markers = ["db: needs the PostgreSQL server on port 5418 (skips itself when unreachable)"]

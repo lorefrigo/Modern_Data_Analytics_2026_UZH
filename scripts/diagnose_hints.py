@@ -12,9 +12,9 @@ Usage (from MDA/):
 import argparse, os, re
 from collections import Counter
 import numpy as np, pandas as pd
-import psycopg2
 
-from lcm_recheck.config import PG16, PG18, JOIN_ORDER_FOLDER, PG_HOST, PG_USER, PG_PASSWORD, PG_DB, PORTS
+from lcm_recheck.config import PG16, PG18, JOIN_ORDER_FOLDER, PORTS
+from lcm_recheck.db import add_db_args, connect
 
 DUMP = re.compile(r"\{used hints:(.*?)\}, \{not used hints:(.*?)\}, \{duplicate hints:(.*?)\}, \{error hints:(.*?)\}",
                   re.S)
@@ -28,15 +28,13 @@ def keywords(s):
 ap = argparse.ArgumentParser()
 ap.add_argument("--pg18", required=True); ap.add_argument("--eval_root", required=True)
 ap.add_argument("--out", default="results/pg18_hint_status.csv")
-ap.add_argument("--host", default=PG_HOST); ap.add_argument("--port", type=int, default=PORTS[PG18])
-ap.add_argument("--user", default=PG_USER); ap.add_argument("--password", default=PG_PASSWORD)
-ap.add_argument("--db", default=PG_DB)
+add_db_args(ap, port=PORTS[PG18])
 a = ap.parse_args()
 
 df = pd.read_csv(a.pg18).sort_values(["query", "plan_idx"])
 df["dup"] = df.groupby("query")["shape"].transform(lambda s: s.duplicated(keep=False))
 
-conn = psycopg2.connect(host=a.host, port=a.port, user=a.user, password=a.password, dbname=a.db)
+conn = connect(a)
 conn.autocommit = True
 cur = conn.cursor()
 cur.execute("SET pg_hint_plan.debug_print = 'detailed'; SET client_min_messages = 'log'; "

@@ -7,13 +7,13 @@ a statement timeout marks the plan as timed out. Needs only psycopg2.
 
 E1 (costs only):     python scripts/run_plans.py --explain_only --port 5418 --sql_dir <WL> --out_dir runs_pg18_explain --queries 0 1 2
 E2 (execute plans):  python scripts/run_plans.py --reps 3 --timeout 30 --port 5418 --sql_dir <WL> --out_dir runs_pg18 --queries 0 1 2
+--port is required (no default), so every run names the server, and with it the PostgreSQL version.
 """
 import argparse, json, os, time
-import psycopg2
 from psycopg2 import errors
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from lcm_recheck.config import PG_HOST, PG_USER, PG_PASSWORD, PG_DB, PG_STOCK_PORT
+from lcm_recheck.db import add_db_args, connect
 
 
 def rows(cur, sql):
@@ -29,13 +29,11 @@ def main():
     ap.add_argument("--explain_only", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--timeout", type=int, default=30, help="seconds per statement")
-    ap.add_argument("--host", default=PG_HOST); ap.add_argument("--port", type=int, default=PG_STOCK_PORT)
-    ap.add_argument("--user", default=PG_USER); ap.add_argument("--password", default=PG_PASSWORD)
-    ap.add_argument("--db", default=PG_DB)
+    add_db_args(ap, port=None)
     a = ap.parse_args()
     os.makedirs(a.out_dir, exist_ok=True)
 
-    conn = psycopg2.connect(host=a.host, port=a.port, user=a.user, password=a.password, dbname=a.db)
+    conn = connect(a)
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     cur = conn.cursor()
     cur.execute("SELECT version()"); server_version = cur.fetchone()[0]

@@ -49,8 +49,7 @@ PG_HOST = "localhost"
 PG_USER = "postgres"
 PG_PASSWORD = ""
 PG_DB = "imdb"
-PORTS = {PG18: 5418}             # one server per version (Postgres.app, server PG18-E1)
-PG_STOCK_PORT = 5432             # PostgreSQL's own default; current --port default of run_plans.py
+PORTS = {PG18: 5418}             # one server per version (Postgres.app, server PG18-E1); run_plans.py has no default
 
 # ----------------------------------------------------------------------------- statistical protocol
 B = 10_000                       # bootstrap resamples

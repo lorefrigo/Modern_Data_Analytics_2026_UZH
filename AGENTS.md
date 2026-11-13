@@ -59,7 +59,9 @@ All commands run from the repository root.
 | File | Purpose |
 |---|---|
 | `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `default_retrain_root()` |
+| `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
 | `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
+| `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
 | `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
 | `tools/dump_defaults.py` | Prints the argparse defaults of a script without running it (used by `verify_golden.sh`) |
 | `scripts/osf_fetch.py` | List or selectively download OSF files (shows sizes first) |
@@ -99,7 +101,6 @@ Known problems to fix:
   `extract_runs.py`) being importable from the same folder.
 - `check_pg16_labels.py`, `check_pinned.py` and `inspect_e1_inputs.py` run at import time and have no
   `--out`.
-- Connection arguments are repeated in `run_plans.py`, `load_imdb.py` and `diagnose_hints.py`.
 - `make_pg18_predcsv.py` runs at import time and is hard-wired to PG18.
 - The SQL fix exists only as a shell loop.
 - Generated prediction folders (`postgres_18`, `postgres_18_asis`) are written **inside**
@@ -256,7 +257,7 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
 - **Another PostgreSQL version (e.g. PG17 or PG19).**
   1. Set up a server on its own port (e.g. 5417) with the same settings and pg_hint_plan.
   2. Load the data with `load_imdb.py --port`.
-  3. Run `run_plans.py --explain_only` on `results/sql_pinned_fixed`.
+  3. Run `run_plans.py --explain_only --port <port>` on `results/sql_pinned_fixed` (`--port` has no default).
   4. Run `extract_runs.py`, then `make_predcsv.py --label postgres_<v>`.
   5. `sigtests.py paper` picks the label up in the "PG version vs PG10" family.
   6. Add the port and label to `config.py`; nothing else should need to change.
