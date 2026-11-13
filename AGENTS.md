@@ -210,19 +210,31 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
 2. Regression against `results/golden/` (local, gitignored, created before the refactoring):
    - CSV outputs (`extract_runs`, prediction CSVs) must be identical. Use `cmp`, or pandas with exact
      comparison for floats that are only re-serialised.
-   - `sigtests` outputs must be identical apart from the header lines; bootstrap intervals may differ
-     only in the option-B commit.
+   - `sigtests` outputs must be identical apart from the header lines; bootstrap intervals, bootstrap
+     p-values and the verdicts resting on them may differ only in the option-B commit (see "Statistical
+     protocol"). This includes `sigtests.py versions --a results/pg10_paper.csv --b results/pg16_paper.csv`,
+     without and with `--timeout_penalty 30`, against `results/golden/sigtests_versions.txt` and
+     `results/golden/sigtests_versions_penalty.txt`.
    - `bias_models.py --eval_root lcm-eval/data/evaluation` must match `results/golden/bias_models_rerun.txt`
      apart from the header lines; bootstrap intervals and bootstrap p-values may differ only in the
      option-B commit. After that commit, regenerate the golden file and the committed
      `results/bias_models.txt`.
-   - `bias_data.py` outputs must be identical to `results/bias_data_imdb.txt` and
-     `results/bias_data_19dbs.txt` apart from the header lines (no randomness).
-   - `check_pg16_labels.py`, `check_pinned.py`, `check_pg16_ties.py` and `inspect_e1_inputs.py` only print:
-     their stdout must be identical to copies saved as `results/golden/<script>.stdout` before the
-     refactoring.
-   - DB steps: rerun `run_plans.py --explain_only` on queries `0 33 55` into `/tmp` and compare `est_cost`
-     with `results/pg18_explain_fixed.csv` (0 differences expected).
+   - `bias_data.py` outputs (the two commands in "What this repository is") must be identical to
+     `results/golden/bias_data_imdb_rerun.txt` and `results/golden/bias_data_19dbs_rerun.txt` (which match
+     the committed `results/bias_data_*.txt`) apart from the header lines (no randomness). Compare with
+     `diff <(grep -v -e '^#' -e '^Output written' A) <(grep -v -e '^#' -e '^Output written' B)`.
+     Runtimes: IMDB about 5 s, 19 databases about 80 s.
+   - `check_pg16_labels.py`, `check_pinned.py`, `check_pg16_ties.py`, `inspect_e1_inputs.py` and
+     `check_downloads.py` only print: their stdout (arguments as in their docstrings) must be identical to
+     `results/golden/<script>.stdout`, saved before the refactoring and confirmed deterministic.
+   - DB steps:
+     - Rerun `run_plans.py --explain_only` on queries `0 33 55` into `/tmp` and compare `est_cost`
+       with `results/pg18_explain_fixed.csv` (0 differences expected).
+     - `load_imdb.py --port 5418 --check_only`: stdout identical to `results/golden/load_imdb.stdout` (its
+       `Server:` line holds the exact server version, so a Postgres.app update changes that line only).
+     - `diagnose_hints.py --pg18 results/pg18_explain_fixed.csv --port 5418 --eval_root
+       lcm-eval/data/evaluation --out /tmp/hint_status_check.csv`: `cmp` with
+       `results/pg18_hint_status_fixed.csv` (identical).
 3. The commit message states what changed and whether any number changed, and why.
 
 ## How to extend the code
