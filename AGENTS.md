@@ -60,6 +60,8 @@ All commands run from the repository root.
 |---|---|
 | `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `default_retrain_root()` |
 | `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
+| `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
+| `tools/dump_defaults.py` | Prints the argparse defaults of a script without running it (used by `verify_golden.sh`) |
 | `scripts/osf_fetch.py` | List or selectively download OSF files (shows sizes first) |
 | `scripts/check_downloads.py` | Report which prediction files are present; constants from `config.py` |
 | `scripts/load_imdb.py` | Create and load `imdb`; check row counts, planner settings and that hints work |
@@ -202,7 +204,22 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
    - Unit tests use tiny fixture run files in `tests/fixtures/`, never the real data.
    - Tests that need PostgreSQL are marked `@pytest.mark.db` and skip themselves when port 5418 is
      unreachable.
-2. Regression against `results/golden/` (local, gitignored, created before the refactoring):
+2. Regression against `results/golden/` (local, gitignored, created before the refactoring).
+   `tools/verify_golden.sh` runs every check below and prints one line per check (IDENTICAL, DIFFERENT,
+   ERROR or SKIPPED); exit status 1 if any check is DIFFERENT or ERROR. It writes only to a new temp folder,
+   kept (path printed) if a check fails, and skips the golden checks if `results/golden/` is missing.
+   ```bash
+   tools/verify_golden.sh                 # all checks, about 3 min; database checks SKIPPED if no server
+   tools/verify_golden.sh --no-db         # without the database
+   tools/verify_golden.sh --db-only       # only the database checks
+   tools/verify_golden.sh --quick         # only argparse defaults and --help, against --base (seconds)
+   tools/verify_golden.sh --base <commit> # reference commit for defaults, --help and make_pg18_predcsv stdout
+   ```
+   - No step changes a command-line default unless it says so. `tools/dump_defaults.py` prints every argparse
+     default of a script; the tool compares these defaults and `--help` with the scripts and `src/` at
+     `--base` (default `HEAD`, so run it before committing).
+   - When a step renames a script or changes a golden command (e.g. steps 7 and 8), update the tool in the
+     same commit.
    - CSV outputs (`extract_runs`, prediction CSVs) must be identical. Use `cmp`, or pandas with exact
      comparison for floats that are only re-serialised.
    - `sigtests` outputs must be identical apart from the header lines; bootstrap intervals, bootstrap
