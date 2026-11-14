@@ -20,12 +20,17 @@ Run from the MDA folder:
   uv run python scripts/load_imdb.py --port 5418 --force             # drop and reload
   uv run python scripts/load_imdb.py --port 5418 --check_only        # only the checks
 """
-import argparse, json, os, sys, time
+import argparse
+import json
+import os
+import sys
+import time
+
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from lcm_recheck.config import IMDB_CSV_DIR, IMDB_DATASET_DIR, PORTS, PG18
 from lcm_recheck import db as pgdb
+from lcm_recheck.config import IMDB_CSV_DIR, IMDB_DATASET_DIR, PG18, PORTS
 
 AUTHORS_COPY_OPTS = "DELIMITER ',' QUOTE '\"' ESCAPE '\\' NULL '' CSV HEADER"
 

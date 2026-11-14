@@ -18,11 +18,16 @@ the layout sigtests.py paper --extra_root reads. eval_root is only read (the aut
 comparison printed at the end). An existing label folder is not overwritten unless --overwrite is given.
 If --costs comes from the Leading-only SQL instead, the same code yields "all PG10-executed plans" as candidates.
 """
-import argparse, glob, os, sys
-import numpy as np, pandas as pd
+import argparse
+import glob
+import os
+import sys
+
+import numpy as np
+import pandas as pd
 from scipy.stats import spearmanr
 
-from lcm_recheck.config import JOB_LIGHT_IDS, REF, PG16, JOIN_ORDER_FOLDER, PRED_ROOT
+from lcm_recheck.config import JOB_LIGHT_IDS, JOIN_ORDER_FOLDER, PG16, PRED_ROOT, REF
 from lcm_recheck.hints import leading
 
 
@@ -59,19 +64,19 @@ def main():
         if dv.empty:
             problems.append(f"{q}: no {a.label} plans"); continue
         lead2idx = {leading(s): i for i, s in d10.sql.items()}
-        dv = dv.assign(pg10_idx=dv.sql.map(lambda s: lead2idx.get(leading(s))))
+        dv = dv.assign(pg10_idx=dv.sql.map(lambda s, lead2idx=lead2idx: lead2idx.get(leading(s))))
         n_unmapped, n_nocost = int(dv.pg10_idx.isna().sum()), int(dv.est_cost.isna().sum())
         if n_unmapped or n_nocost:
             problems.append(f"{q}: {n_unmapped} {a.label} plans without a PG10 join order, {n_nocost} without a cost")
         dv = dv[dv.pg10_idx.notna() & dv.est_cost.notna()]
-        dv = dv[dv.pg10_idx.map(lambda i: bool(d10.loc[int(i), "ok"]))]          # keep plans with a PG10 runtime
+        dv = dv[dv.pg10_idx.map(lambda i, d10=d10: bool(d10.loc[int(i), "ok"]))]          # keep plans with a PG10 runtime
         idx = dv.pg10_idx.astype(int).values
         label, pred = d10.loc[idx, "runtime_s"].values, dv.est_cost.values
 
-        pd.DataFrame(dict(query_index=range(len(idx)), label=label, prediction=pred, qerror=np.nan)) \
+        pd.DataFrame({"query_index": range(len(idx)), "label": label, "prediction": pred, "qerror": np.nan}) \
             .to_csv(os.path.join(out, f"{q}_0_test_pred.csv"), index=False)
 
-        s = dict(query=q, n=len(idx), selected=label[np.argmin(pred)], optimal=label.min())
+        s = {"query": q, "n": len(idx), "selected": label[np.argmin(pred)], "optimal": label.min()}
         for model in [PG16, REF]:
             r = ref_file(root, model, q)
             s[f"same_as_{model}"] = r is not None and len(r) == len(idx) and \

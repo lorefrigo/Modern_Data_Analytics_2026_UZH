@@ -9,10 +9,14 @@ Usage (run from the MDA folder):
   python scripts/osf_fetch.py --match evaluation/ --any /physical_plan/ --any /scan_costs_percentiles/
                                                                              # and at least one --any
 """
-import argparse, os, sys, zipfile
+import argparse
+import os
+import sys
+import zipfile
+
 import osfclient
 
-from lcm_recheck.config import OSF_PROJECT, DATA_ROOT
+from lcm_recheck.config import DATA_ROOT, OSF_PROJECT
 
 
 def walk(project_id):

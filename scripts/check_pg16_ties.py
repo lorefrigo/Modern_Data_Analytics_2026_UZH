@@ -11,10 +11,13 @@ Usage (from MDA/):
          --status results/pg18_hint_status.csv --eval_root lcm-eval/data/evaluation
 A model is read from --extra_root (default results/predictions) if it has a folder there, else from --eval_root.
 """
-import argparse, os
-import numpy as np, pandas as pd
+import argparse
+import os
 
-from lcm_recheck.config import PG_VERSIONS, JOIN_ORDER_FOLDER, PRED_ROOT, model_root
+import numpy as np
+import pandas as pd
+
+from lcm_recheck.config import JOIN_ORDER_FOLDER, PG_VERSIONS, PRED_ROOT, model_root
 from lcm_recheck.hints import leading
 
 
@@ -38,9 +41,9 @@ def main():
         d10 = pg10[pg10["query"] == q].set_index("plan_idx")
         lead2idx = {leading(s): i for i, s in d10.sql.items()}
         d = pg18[pg18["query"] == q].sort_values("plan_idx")
-        d = d[d.sql.map(lambda s: bool(d10.loc[lead2idx[leading(s)], "ok"]))]      # rows of the prediction files
+        d = d[d.sql.map(lambda s, d10=d10, lead2idx=lead2idx: bool(d10.loc[lead2idx[leading(s)], "ok"]))]      # rows of the prediction files
         broken = ~d.leading_used.values
-        row = dict(query=q, rows=len(d), broken=int(broken.sum()))
+        row = {"query": q, "rows": len(d), "broken": int(broken.sum())}
         for m in a.models:
             f = pd.read_csv(os.path.join(model_root(a.eval_root, a.extra_root, m), m, "imdb", JOIN_ORDER_FOLDER,
                                          f"{q}_0_test_pred.csv"))
@@ -48,7 +51,7 @@ def main():
                 row[f"{m}_note"] = "row count differs"; continue
             p = pd.Series(np.round(f.prediction.values, 9))
             tied = p.duplicated(keep=False).values
-            tab[m].append(pd.DataFrame(dict(broken=broken, tied=tied)))
+            tab[m].append(pd.DataFrame({"broken": broken, "tied": tied}))
             sel = int(np.argmin(f.prediction.values))
             row[f"{m}_tied_broken"] = int((tied & broken).sum())
             row[f"{m}_tied_clean"] = int((tied & ~broken).sum())

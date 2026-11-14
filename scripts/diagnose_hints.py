@@ -10,15 +10,26 @@ Usage (from MDA/):
          --eval_root lcm-eval/data/evaluation --out results/pg18_hint_status.csv
 Sc. PG18 is read from --extra_root (default results/predictions) if it has a postgres_18 folder, else from --eval_root.
 """
-import argparse, os, re
+import argparse
+import os
+import re
 from collections import Counter
-import numpy as np, pandas as pd
 
-from lcm_recheck.config import PG16, PG18, JOIN_ORDER_FOLDER, PORTS, PRED_ROOT, model_root
+import numpy as np
+import pandas as pd
+
+from lcm_recheck.config import (
+    JOIN_ORDER_FOLDER,
+    PG16,
+    PG18,
+    PORTS,
+    PRED_ROOT,
+    model_root,
+)
 from lcm_recheck.db import add_db_args, connect
 
 DUMP = re.compile(r"\{used hints:(.*?)\}, \{not used hints:(.*?)\}, \{duplicate hints:(.*?)\}, \{error hints:(.*?)\}",
-                  re.S)
+                  re.DOTALL)
 KW = re.compile(r"([A-Za-z]+)\(")
 
 
@@ -53,11 +64,11 @@ def main():
         err = re.search(r"hint syntax error at or near \"(.*?)\"\s*DETAIL:\s*(.*)", msgs)
         m = DUMP.findall(msgs)
         used, not_used, dup_h, err_h = m[-1] if m else ("", "", "", "")
-        rows.append(dict(query=r.query, plan_idx=r.plan_idx, dup_plan=r.dup,
-                         syntax_error=err.group(2).strip() if err else "",
-                         error_near=err.group(1)[:60] if err else "",
-                         leading_used="Leading(" in used, used=used.strip(), not_used=not_used.strip(),
-                         duplicate_hints=dup_h.strip(), error_hints=err_h.strip(), dump_found=bool(m)))
+        rows.append({"query": r.query, "plan_idx": r.plan_idx, "dup_plan": r.dup,
+                     "syntax_error": err.group(2).strip() if err else "",
+                     "error_near": err.group(1)[:60] if err else "",
+                     "leading_used": "Leading(" in used, "used": used.strip(), "not_used": not_used.strip(),
+                     "duplicate_hints": dup_h.strip(), "error_hints": err_h.strip(), "dump_found": bool(m)})
         if (i + 1) % 1000 == 0:
             print(f"  {i + 1}/{len(df)} lines re-planned", flush=True)
     conn.close()
@@ -89,7 +100,7 @@ def main():
     print("\nPer query: lines without Leading, and the plan Sc. PG16 / Sc. PG18 select (PG10 runtime, s)")
     out = []
     for q, g in t.groupby("query"):
-        row = dict(query=q, lines=len(g), no_leading=int((~g.leading_used).sum()), dup=int(g.dup_plan.sum()))
+        row = {"query": q, "lines": len(g), "no_leading": int((~g.leading_used).sum()), "dup": int(g.dup_plan.sum())}
         for model in [PG16, PG18]:
             p = os.path.join(model_root(a.eval_root, a.extra_root, model), model, "imdb", JOIN_ORDER_FOLDER,
                              f"{q}_0_test_pred.csv")

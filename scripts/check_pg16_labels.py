@@ -8,11 +8,13 @@ Usage (from MDA/):
   uv run python scripts/check_pg16_labels.py --pg10 results/pg10_paper.csv --pg16 results/pg16_paper.csv \
          --eval_root lcm-eval/data/evaluation
 """
-import argparse, os
-import numpy as np, pandas as pd
+import argparse
+import os
 
-from lcm_recheck.config import REF, PG16, JOIN_ORDER_FOLDER
+import numpy as np
+import pandas as pd
 
+from lcm_recheck.config import JOIN_ORDER_FOLDER, PG16, REF
 
 HYP = {  # name: (runtimes used as labels, which plans are candidates)
     "PG10 runtimes, PG10 executed": ("pg10", "ok10"),
@@ -72,9 +74,9 @@ def main():
             c = candidates(both, runs, q, src, keep)
             if len(c) != len(t) or len(t) < 3:
                 continue
-            for v in corr:
+            for v, vals in corr.items():
                 cost = runs[v].set_index(["query", "plan_idx"]).loc[[(q, i) for i in c.plan_idx], "est_cost"].values
-                corr[v].append(np.corrcoef(cost, t.prediction.values)[0, 1])
+                vals.append(np.corrcoef(cost, t.prediction.values)[0, 1])
         print(f"  best: {best[0]}; median correlation of predictions with est. cost (plan order): "
               + ", ".join(f"{v} {np.nanmedian(r):.4f}" for v, r in corr.items() if r))
 

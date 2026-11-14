@@ -9,10 +9,13 @@ Usage (from MDA/):
          --pinned_dir lcm-eval/data/workloads/evaluation/imdb/join_order_full_pg_10_hinted \
          --eval_root lcm-eval/data/evaluation
 """
-import argparse, os
-import numpy as np, pandas as pd
+import argparse
+import os
 
-from lcm_recheck.config import JOB_LIGHT_IDS, PG16, JOIN_ORDER_FOLDER
+import numpy as np
+import pandas as pd
+
+from lcm_recheck.config import JOB_LIGHT_IDS, JOIN_ORDER_FOLDER, PG16
 from lcm_recheck.hints import leading
 
 
@@ -42,11 +45,11 @@ def main():
         in_order = len(sc16) == len(kept) and np.allclose(d.loc[kept, "runtime_s"].values, sc16.label.values, rtol=1e-3)
         if len(sc16) == len(kept) >= 3:
             corrs.append((np.corrcoef(d.loc[kept, "est_cost"].values, sc16.prediction.values)[0, 1], q, len(kept)))
-        rows.append(dict(query=q, pinned=len(pinned), unmapped=len(pinned) - len(ok_map),
-                         dup_leading=int(lead.duplicated().sum()), pg10_executed=int(d.ok.sum()),
-                         pinned_timed_out_in_pg10=int((~d.loc[ok_map, "ok"]).sum()),
-                         pg10_executed_not_pinned=int(len(set(d.index[d.ok]) - set(ok_map))),
-                         kept=len(kept), sc16_rows=len(sc16), labels_match=labels_ok, same_order=in_order))
+        rows.append({"query": q, "pinned": len(pinned), "unmapped": len(pinned) - len(ok_map),
+                     "dup_leading": int(lead.duplicated().sum()), "pg10_executed": int(d.ok.sum()),
+                     "pinned_timed_out_in_pg10": int((~d.loc[ok_map, "ok"]).sum()),
+                     "pg10_executed_not_pinned": len(set(d.index[d.ok]) - set(ok_map)),
+                     "kept": len(kept), "sc16_rows": len(sc16), "labels_match": labels_ok, "same_order": in_order})
 
     t = pd.DataFrame(rows)
     print(f"pinned lines {t.pinned.sum()}, Sc. PG16 rows {t.sc16_rows.sum()}, PG10 executed plans {t.pg10_executed.sum()}")

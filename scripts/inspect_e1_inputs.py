@@ -2,9 +2,12 @@
 
 Usage (from MDA/):  uv run python scripts/inspect_e1_inputs.py
 """
-import glob, json, os, re
+import glob
+import json
+import os
 
-from lcm_recheck.config import JOB_LIGHT_IDS as IDS, SQL_FULL_DIR, SQL_PINNED_DIR, RUNS_PG10_DIR, RUNS_PG16_DIR
+from lcm_recheck.config import JOB_LIGHT_IDS as IDS
+from lcm_recheck.config import RUNS_PG10_DIR, RUNS_PG16_DIR, SQL_FULL_DIR, SQL_PINNED_DIR
 from lcm_recheck.hints import leading
 
 SQL_DIRS = {"full": SQL_FULL_DIR, "pinned": SQL_PINNED_DIR}

@@ -9,7 +9,11 @@ E1 (costs only):     python scripts/run_plans.py --explain_only --port 5418 --sq
 E2 (execute plans):  python scripts/run_plans.py --reps 3 --timeout 30 --port 5418 --sql_dir <WL> --out_dir runs_pg18 --queries 0 1 2
 --port is required (no default), so every run names the server, and with it the PostgreSQL version.
 """
-import argparse, json, os, time
+import argparse
+import json
+import os
+import time
+
 from psycopg2 import errors
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
@@ -49,7 +53,7 @@ def main():
             sqls = [l.strip() for l in f if l.strip()]
         start, query_list = time.time(), []
         for i, sql in enumerate(sqls):
-            entry = dict(sql=sql, hint="", verbose_plan=None, analyze_plans=[], timeout=False)
+            entry = {"sql": sql, "hint": "", "verbose_plan": None, "analyze_plans": [], "timeout": False}
             try:
                 # same statement form as the authors' runner: the /*+ ... */ hint stays inside the SQL,
                 # after EXPLAIN (pg_hint_plan honours it there; check the duplicate-plan count anyway)
@@ -61,9 +65,9 @@ def main():
                 entry["timeout"] = True
             query_list.append(entry)
             print(f"\rjob_light_{k}: {i + 1}/{len(sqls)} plans", end="", flush=True)
-        run = dict(query_list=query_list, server_version=server_version,
-                   run_kwargs=dict(explain_only=a.explain_only, reps=a.reps, timeout=a.timeout),
-                   total_time_secs=time.time() - start)
+        run = {"query_list": query_list, "server_version": server_version,
+               "run_kwargs": {"explain_only": a.explain_only, "reps": a.reps, "timeout": a.timeout},
+               "total_time_secs": time.time() - start}
         with open(target + ".tmp", "w") as out:
             json.dump(run, out)
         os.replace(target + ".tmp", target)           # only complete files count as done

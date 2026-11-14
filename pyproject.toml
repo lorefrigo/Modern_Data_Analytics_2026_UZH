@@ -21,3 +21,13 @@ module-name = "lcm_recheck"
 [tool.pytest.ini_options]
 testpaths = ["tests"]          # never collect the authors' tests under lcm-eval/
 markers = ["db: needs the PostgreSQL server on port 5418 (skips itself when unreachable)"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 120               # the line length the code uses; E501 itself is not enabled
+extend-exclude = ["lcm-eval"]   # the authors' repo and downloaded data; never linted

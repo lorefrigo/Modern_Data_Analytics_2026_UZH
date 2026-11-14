@@ -3,10 +3,26 @@ exact commands for the next steps. Model and workload lists come from lcm_rechec
 
 Usage (from the MDA folder):  python scripts/check_downloads.py
 """
-import glob, os
-from lcm_recheck.config import (LCMS, ACT_CARD_LCMS, FINE_TUNED_LCMS, INDEX_LCMS, REF, PG16, SEEDS,
-                                SCAN_COLUMNS, PHYSICAL, PHYSICAL_INDEX, JOB_LIGHT_QUERIES, DATA_ROOT,
-                                JOIN_ORDER_FOLDER, SCAN_FOLDER, default_retrain_root)
+import glob
+import os
+
+from lcm_recheck.config import (
+    ACT_CARD_LCMS,
+    DATA_ROOT,
+    FINE_TUNED_LCMS,
+    INDEX_LCMS,
+    JOB_LIGHT_QUERIES,
+    JOIN_ORDER_FOLDER,
+    LCMS,
+    PG16,
+    PHYSICAL,
+    PHYSICAL_INDEX,
+    REF,
+    SCAN_COLUMNS,
+    SCAN_FOLDER,
+    SEEDS,
+    default_retrain_root,
+)
 
 JOB_LIGHT = set(JOB_LIGHT_QUERIES)
 

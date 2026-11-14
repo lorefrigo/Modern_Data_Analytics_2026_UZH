@@ -6,7 +6,10 @@ cross-check of their labels.
 Usage:
   python extract_runs.py --runs DIR_WITH_job_light_*.json --version pg10_paper --out pg10_paper.csv
 """
-import argparse, glob, os
+import argparse
+import glob
+import os
+
 import pandas as pd
 
 from lcm_recheck.runs import exec_ms, load_run, plan_shape, top_cost
@@ -26,14 +29,14 @@ def main():
         for i, q in enumerate(queries):
             vp, aps = q.get("verbose_plan"), q.get("analyze_plans") or []
             reps = [exec_ms(p) for p in aps]
-            rows.append(dict(
-                version=a.version, query=query, plan_idx=i, sql=q["sql"],
-                timeout=bool(q.get("timeout")),
-                est_cost=top_cost(vp) if vp else float("nan"),
-                shape=plan_shape(vp) if vp else None,
-                n_reps=len(reps),
-                runtime_s=(sum(reps) / len(reps) / 1000) if reps else float("nan"),
-                runtime_reps_ms=";".join(f"{r:.3f}" for r in reps)))
+            rows.append({
+                "version": a.version, "query": query, "plan_idx": i, "sql": q["sql"],
+                "timeout": bool(q.get("timeout")),
+                "est_cost": top_cost(vp) if vp else float("nan"),
+                "shape": plan_shape(vp) if vp else None,
+                "n_reps": len(reps),
+                "runtime_s": (sum(reps) / len(reps) / 1000) if reps else float("nan"),
+                "runtime_reps_ms": ";".join(f"{r:.3f}" for r in reps)})
     df = pd.DataFrame(rows)
     df.to_csv(a.out, index=False)
 

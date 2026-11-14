@@ -208,8 +208,9 @@ Do one step per commit and verify each step (see "Verification") before the next
    - Commit the generated prediction CSVs, which are small.
 8. `scripts/fix_hints.py`: replaces the shell loop that writes `results/sql_pinned_fixed/`. It also reports
    how many lines it changed (771 expected).
-9. Console entry points in `pyproject.toml` (e.g. `uv run lcm-sigtests paper ...`), plus `pytest` and
-   `ruff` as dev dependencies.
+9. `pytest` and `ruff` as dev dependencies (`uv add --dev`), ruff settings in `pyproject.toml` (excludes
+   `lcm-eval/`), and `ruff check .` clean, including `scripts/`. Decided: no console entry points; the
+   interface stays `uv run python scripts/<name>.py`.
 10. Update the README's command section from the final code. Before the README is written, in this order:
     - One commit across all scripts: give every command-line option a `--help` text. No default changes;
       `tools/verify_golden.sh` then reports DIFFERENT only for the `--help` checks of the scripts touched.
@@ -222,11 +223,10 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
 
 ## Verification (after every change)
 
-1. Until step 9 adds `ruff` and `pytest` as dev dependencies, use exactly these commands:
+1. Lint and unit tests (`ruff` and `pytest` are dev dependencies, pinned in `uv.lock`):
    ```bash
-   uvx ruff check src tests tools/check_json_vs_raw.py   # must be clean
-   uvx ruff check scripts                                # at most 30 findings (the count before step 7)
-   uv run --with pytest pytest
+   uv run ruff check .   # must be clean
+   uv run pytest
    ```
    - Unit tests use tiny fixture run files in `tests/fixtures/`, never the real data.
    - Tests that need PostgreSQL are marked `@pytest.mark.db` and skip themselves when port 5418 is
