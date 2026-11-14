@@ -8,12 +8,13 @@ Then relates this to the duplicate plans and to the queries where Sc. PG18 and S
 Usage (from MDA/):
   uv run python scripts/diagnose_hints.py --pg18 results/pg18_explain.csv --port 5418 \
          --eval_root lcm-eval/data/evaluation --out results/pg18_hint_status.csv
+Sc. PG18 is read from --extra_root (default results/predictions) if it has a postgres_18 folder, else from --eval_root.
 """
 import argparse, os, re
 from collections import Counter
 import numpy as np, pandas as pd
 
-from lcm_recheck.config import PG16, PG18, JOIN_ORDER_FOLDER, PORTS
+from lcm_recheck.config import PG16, PG18, JOIN_ORDER_FOLDER, PORTS, PRED_ROOT, model_root
 from lcm_recheck.db import add_db_args, connect
 
 DUMP = re.compile(r"\{used hints:(.*?)\}, \{not used hints:(.*?)\}, \{duplicate hints:(.*?)\}, \{error hints:(.*?)\}",
@@ -29,6 +30,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pg18", required=True); ap.add_argument("--eval_root", required=True)
     ap.add_argument("--out", default="results/pg18_hint_status.csv")
+    ap.add_argument("--extra_root", default=PRED_ROOT,
+                    help="generated prediction folders (make_predcsv.py); used for a model that has a folder here")
     add_db_args(ap, port=PORTS[PG18])
     a = ap.parse_args()
 
@@ -88,7 +91,8 @@ def main():
     for q, g in t.groupby("query"):
         row = dict(query=q, lines=len(g), no_leading=int((~g.leading_used).sum()), dup=int(g.dup_plan.sum()))
         for model in [PG16, PG18]:
-            p = os.path.join(a.eval_root, model, "imdb", JOIN_ORDER_FOLDER, f"{q}_0_test_pred.csv")
+            p = os.path.join(model_root(a.eval_root, a.extra_root, model), model, "imdb", JOIN_ORDER_FOLDER,
+                             f"{q}_0_test_pred.csv")
             if os.path.exists(p):
                 f = pd.read_csv(p)
                 row[model] = f.label.values[np.argmin(f.prediction.values)]

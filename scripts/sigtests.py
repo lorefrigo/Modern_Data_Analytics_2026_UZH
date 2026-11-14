@@ -14,15 +14,24 @@ versions : PG10 vs PG18 plan selection on the same machine, from two extract_run
 Usage:
   python sigtests.py paper    --eval_root lcm-eval/data/evaluation [--out results/sigtests_paper.txt]
                               [--retrain_root lcm-eval/data/retraining_evaluation] [--tasks join access physical]
+                              [--extra_root results/predictions]
   python sigtests.py versions --a pg10_local.csv --b pg18_local.csv [--timeout_penalty 30] [--out FILE]
 
 --out writes everything that is printed to FILE as well (still shown in the terminal). An existing
 file is always overwritten. The file starts with the date, the exact command and the package versions.
+--extra_root (default results/predictions) holds generated prediction folders (make_predcsv.py); Task 1 reads a
+model from there if it has a folder there, otherwise from --eval_root.
 """
 import argparse
 import os
+import sys
 
-from lcm_recheck.config import BASE_SEED, default_retrain_root
+from lcm_recheck.config import (
+    BASE_SEED,
+    PRED_ROOT,
+    default_retrain_root,
+    shadowed_models,
+)
 from lcm_recheck.report import tee_output
 from lcm_recheck.tasks.access import task_access
 from lcm_recheck.tasks.common import summary
@@ -47,12 +56,18 @@ def main():
     p1 = sp.add_parser("paper", parents=[common]); p1.add_argument("--eval_root", required=True)
     p1.add_argument("--retrain_root", help="fine-tuned predictions (Fig. 14); default: retraining_evaluation next to eval_root")
     p1.add_argument("--tasks", nargs="+", choices=["join", "access", "physical"], default=["join", "access", "physical"])
+    p1.add_argument("--extra_root", default=PRED_ROOT,
+                    help="generated prediction folders (make_predcsv.py); Task 1 reads a model from here if it has a "
+                         "folder here, otherwise from eval_root")
     p2 = sp.add_parser("versions", parents=[common]); p2.add_argument("--a", required=True); p2.add_argument("--b", required=True)
     p2.add_argument("--timeout_penalty", type=float, default=None)
     a = ap.parse_args()
     if a.mode == "paper":
         a.eval_root = os.path.expanduser(a.eval_root)
         a.retrain_root = os.path.expanduser(a.retrain_root or default_retrain_root(a.eval_root))
+        a.extra_root = os.path.expanduser(a.extra_root)
+        for m in shadowed_models(a.eval_root, a.extra_root):
+            print(f"note: {m} is read from {a.extra_root}; the copy in {a.eval_root} is ignored", file=sys.stderr)
 
     with tee_output(a.out, header_extra=f"; bootstrap base seed {BASE_SEED}, one generator per test family",
                     closing=f"Output written to {a.out} (any previous file with this name was overwritten)"):

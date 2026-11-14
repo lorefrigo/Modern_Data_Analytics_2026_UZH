@@ -6,9 +6,12 @@
 #      scripts and src/ at --base (default HEAD);
 #   2. golden outputs without the database: sigtests paper/versions, bias_models, bias_data, extract_runs on the
 #      full run folders (cmp with the committed CSVs), the stdout of the check_* scripts and of
-#      tools/check_json_vs_raw.py, make_pg18_predcsv CSVs (and its stdout against the --base code);
+#      tools/check_json_vs_raw.py, make_predcsv CSVs and the committed results/predictions/ against
+#      results/golden/predictions/ (and its stdout against the --base code);
 #   3. database checks (read-only, no EXPLAIN ANALYZE): run_plans --explain_only est_cost, load_imdb
 #      --check_only, diagnose_hints. Skipped with a note if the server is not reachable (never started here).
+# Checks that read generated predictions (sigtests paper, check_pg16_ties, diagnose_hints) get an eval root without
+# the generated folders (lcm-eval/ as after the cleanup), so they must read them from results/predictions/.
 # Writes only to a new temp folder, deleted at the end unless a check fails or --keep is given.
 # Skips the golden checks cleanly if results/golden/ is missing. Exit status 1 if any check is DIFFERENT or ERROR.
 #
@@ -110,11 +113,24 @@ elif [ ! -d "$G" ]; then
   echo; result SKIPPED "all golden comparisons" "$G/ not found"; RUN_NODB=0; RUN_DB=0; GOLDEN=0
 fi
 
+# $EV without the folders that also exist in $PRED (generated predictions): what lcm-eval/ looks like after the
+# cleanup. Checks reading generated predictions use it as --eval_root, so they can only find them in $PRED.
+if [ "$RUN_NODB" = 1 ] || [ "$RUN_DB" = 1 ]; then
+  PRED=$($PY -c "from lcm_recheck.config import PRED_ROOT; print(PRED_ROOT)")
+  RETRAIN=$($PY -c "from lcm_recheck.config import default_retrain_root; print(default_retrain_root('$EV'))")
+  mkdir -p "$T/eval"
+  for d in "$EV"/*/; do
+    d=${d%/}; m=$(basename "$d")
+    [ -d "$d" ] && [ ! -e "$PRED/$m" ] && ln -s "$PWD/$d" "$T/eval/$m"
+  done
+fi
+
 # ----------------------------------------------------------------------------- 2. golden outputs, no database
 if [ "$RUN_NODB" = 1 ]; then
   echo; echo "== golden outputs without the database"
   check_out "sigtests paper (all tasks)" $G/sigtests_paper_all.txt sigtests_paper \
-    $PY scripts/sigtests.py paper --eval_root $EV --out "$T/sigtests_paper.txt"
+    $PY scripts/sigtests.py paper --eval_root "$T/eval" --retrain_root "$RETRAIN" --extra_root "$PRED" \
+    --out "$T/sigtests_paper.txt"
   check_out "sigtests versions" $G/sigtests_versions.txt sigtests_versions \
     $PY scripts/sigtests.py versions --a results/pg10_paper.csv --b results/pg16_paper.csv --out "$T/sigtests_versions.txt"
   check_out "sigtests versions --timeout_penalty 30" $G/sigtests_versions_penalty.txt sigtests_versions_penalty \
@@ -162,42 +178,53 @@ if [ "$RUN_NODB" = 1 ]; then
   check_stdout "check_pg16_labels stdout" $G/check_pg16_labels.stdout check_pg16_labels $PY scripts/check_pg16_labels.py \
     --pg10 results/pg10_paper.csv --pg16 results/pg16_paper.csv --eval_root $EV
   check_stdout "check_pg16_ties stdout" $G/check_pg16_ties.stdout check_pg16_ties $PY scripts/check_pg16_ties.py \
-    --pg10 results/pg10_paper.csv --pg18 results/pg18_explain.csv --status results/pg18_hint_status.csv --eval_root $EV
+    --pg10 results/pg10_paper.csv --pg18 results/pg18_explain.csv --status results/pg18_hint_status.csv \
+    --eval_root "$T/eval" --extra_root "$PRED"
   # JSON-mode vs raw-mode parsing in lcm_recheck.runs on the authors' PG10 runs (runs/json read from runs.zip in memory)
   if need "check_json_vs_raw stdout" lcm-eval/data/runs/raw/imdb/join_order_full lcm-eval/data/runs.zip; then
     check_stdout "check_json_vs_raw stdout" $G/check_json_vs_raw.stdout check_json_vs_raw $PY tools/check_json_vs_raw.py
   fi
 
-  # make_pg18_predcsv writes into its eval root: use scratch roots with links to the authors' PG10/PG16 folders
-  if need "make_pg18_predcsv" scripts/make_pg18_predcsv.py $EV/postgres $EV/postgres_16 \
-          $G/predictions/postgres_18 $G/predictions/postgres_18_asis; then
-    for side in new base; do
-      mkdir -p "$T/eval_$side"
-      ln -s "$PWD/$EV/postgres" "$T/eval_$side/postgres"; ln -s "$PWD/$EV/postgres_16" "$T/eval_$side/postgres_16"
-    done
+  # make_predcsv into a scratch out_root, and the committed $PRED: both byte-identical to $G/predictions/
+  # ($EV is only read, for the Sc. PG10 / Sc. PG16 comparison in stdout)
+  if need "make_predcsv" $EV/postgres $EV/postgres_16 $G/predictions/postgres_18 $G/predictions/postgres_18_asis; then
     ok=1
     for v in "postgres_18 results/pg18_explain_fixed.csv" "postgres_18_asis results/pg18_explain.csv"; do
       set -- $v
-      run "make_pg18_predcsv --model $1" "mk_new_$1" $PY scripts/make_pg18_predcsv.py --pg10 results/pg10_paper.csv \
-        --pg18 "$2" --eval_root "$T/eval_new" --model "$1" || { ok=0; continue; }
-      if diff -r "$T/eval_new/$1" "$G/predictions/$1" > "$T/mk_$1.diff"; then
-        result IDENTICAL "make_pg18_predcsv CSVs $1 ($(ls "$T/eval_new/$1/imdb/join_order_full" | wc -l | tr -d ' ') files)"
+      if run "make_predcsv --label $1" "mk_new_$1" $PY scripts/make_predcsv.py --label "$1" \
+           --pg10 results/pg10_paper.csv --costs "$2" --eval_root $EV --out_root "$T/pred_new"; then
+        if diff -r "$T/pred_new/$1" "$G/predictions/$1" > "$T/mk_$1.diff"; then
+          result IDENTICAL "make_predcsv CSVs $1 ($(ls "$T/pred_new/$1/imdb/join_order_full" | wc -l | tr -d ' ') files)"
+        else
+          result DIFFERENT "make_predcsv CSVs $1" "diff: $T/mk_$1.diff"
+        fi
       else
-        result DIFFERENT "make_pg18_predcsv CSVs $1" "diff: $T/mk_$1.diff"
+        ok=0
+      fi
+      if need "committed $PRED/$1 vs golden" "$PRED/$1"; then
+        if diff -r "$PRED/$1" "$G/predictions/$1" > "$T/committed_$1.diff"; then
+          result IDENTICAL "committed $PRED/$1 vs golden ($(ls "$PRED/$1/imdb/join_order_full" | wc -l | tr -d ' ') files)"
+        else
+          result DIFFERENT "committed $PRED/$1 vs golden" "diff: $T/committed_$1.diff"
+        fi
       fi
     done
-    if [ "$ok" = 1 ] && need "make_pg18_predcsv stdout vs $BASE" "$T/base/scripts/make_pg18_predcsv.py"; then
-      for v in "postgres_18 results/pg18_explain_fixed.csv" "postgres_18_asis results/pg18_explain.csv"; do
-        set -- $v
-        $BASE_PY "$T/base/scripts/make_pg18_predcsv.py" --pg10 results/pg10_paper.csv --pg18 "$2" \
-          --eval_root "$T/eval_base" --model "$1" > "$T/mk_base_$1.out" 2> "$T/mk_base_$1.log" || ok=0
-      done
-      if [ "$ok" = 1 ]; then
-        cat "$T"/mk_base_postgres_18.out "$T"/mk_base_postgres_18_asis.out | sed "s#$T/eval_base#ROOT#g" > "$T/mk.ref"
-        cat "$T"/mk_new_postgres_18.out "$T"/mk_new_postgres_18_asis.out | sed "s#$T/eval_new#ROOT#g" > "$T/mk.new"
-        compare "make_pg18_predcsv stdout vs $BASE" mk_stdout "$T/mk.new" "$T/mk.ref"
+    if [ "$ok" = 1 ]; then
+      if [ ! -f "$T/base/scripts/make_predcsv.py" ]; then
+        result SKIPPED "make_predcsv stdout vs $BASE" "no scripts/make_predcsv.py in $BASE"
       else
-        result ERROR "make_pg18_predcsv stdout vs $BASE" "log: $T/mk_base_*.log"
+        for v in "postgres_18 results/pg18_explain_fixed.csv" "postgres_18_asis results/pg18_explain.csv"; do
+          set -- $v
+          $BASE_PY "$T/base/scripts/make_predcsv.py" --label "$1" --pg10 results/pg10_paper.csv --costs "$2" \
+            --eval_root $EV --out_root "$T/pred_base" > "$T/mk_base_$1.out" 2> "$T/mk_base_$1.log" || ok=0
+        done
+        if [ "$ok" = 1 ]; then
+          cat "$T"/mk_base_postgres_18.out "$T"/mk_base_postgres_18_asis.out | sed "s#$T/pred_base#ROOT#g" > "$T/mk.ref"
+          cat "$T"/mk_new_postgres_18.out "$T"/mk_new_postgres_18_asis.out | sed "s#$T/pred_new#ROOT#g" > "$T/mk.new"
+          compare "make_predcsv stdout vs $BASE" mk_stdout "$T/mk.new" "$T/mk.ref"
+        else
+          result ERROR "make_predcsv stdout vs $BASE" "log: $T/mk_base_*.log"
+        fi
       fi
     fi
   fi
@@ -238,7 +265,7 @@ EOF
       # the golden stdout prints the --out path used when it was made: /tmp/hint_status_check.csv
       if need "diagnose_hints" $G/diagnose_hints.stdout results/pg18_hint_status_fixed.csv &&
          run "diagnose_hints" diagnose_hints $PY scripts/diagnose_hints.py --pg18 results/pg18_explain_fixed.csv \
-           --port "$PORT" --eval_root $EV --out "$T/hint_status_check.csv"; then
+           --port "$PORT" --eval_root "$T/eval" --extra_root "$PRED" --out "$T/hint_status_check.csv"; then
         sed "s#$T/hint_status_check.csv#/tmp/hint_status_check.csv#g" "$T/diagnose_hints.out" > "$T/diagnose_hints.new"
         compare "diagnose_hints stdout" diagnose_hints_stdout "$T/diagnose_hints.new" $G/diagnose_hints.stdout
         if cmp -s "$T/hint_status_check.csv" results/pg18_hint_status_fixed.csv; then

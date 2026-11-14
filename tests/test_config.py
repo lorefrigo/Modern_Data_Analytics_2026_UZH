@@ -1,4 +1,6 @@
 """Consistency of the constants in lcm_recheck.config (no data, no database)."""
+from pathlib import Path
+
 from lcm_recheck import config as c
 
 
@@ -39,6 +41,27 @@ def test_default_retrain_root() -> None:
     expected = "lcm-eval/data/retraining_evaluation"
     assert c.default_retrain_root("lcm-eval/data/evaluation") == expected
     assert c.default_retrain_root("lcm-eval/data/evaluation/") == expected
+
+
+def test_pred_root() -> None:
+    assert c.PRED_ROOT == "results/predictions"
+    assert not c.PRED_ROOT.startswith("lcm-eval")
+
+
+def test_model_root_prefers_extra_root(tmp_path: Path) -> None:
+    ev, ex = tmp_path / "eval", tmp_path / "extra"
+    for d in (ev / "postgres", ev / "postgres_18", ex / "postgres_18", ex / "postgres_19"):
+        d.mkdir(parents=True)
+    (ex / "not_a_model.txt").write_text("")
+    assert c.model_root(str(ev), str(ex), "postgres_18") == str(ex)       # in both: extra_root wins
+    assert c.model_root(str(ev), str(ex), "postgres_19") == str(ex)       # only in extra_root
+    assert c.model_root(str(ev), str(ex), "postgres") == str(ev)          # only in eval_root
+    assert c.model_root(str(ev), str(ex), "missing") == str(ev)
+    assert c.model_root(str(ev), None, "postgres_18") == str(ev)
+    assert c.model_root(str(ev), str(tmp_path / "nowhere"), "postgres_18") == str(ev)
+    assert c.shadowed_models(str(ev), str(ex)) == ["postgres_18"]
+    assert c.shadowed_models(str(ev), None) == []
+    assert c.shadowed_models(str(ev), str(tmp_path / "nowhere")) == []
 
 
 def test_family_ids_pinned() -> None:

@@ -58,7 +58,7 @@ All commands run from the repository root.
 
 | File | Purpose |
 |---|---|
-| `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `default_retrain_root()` |
+| `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `PRED_ROOT` (`results/predictions`), `default_retrain_root()`, `model_root()` (a model's predictions come from `extra_root` if it has a folder there, else from `eval_root`), `shadowed_models()` |
 | `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
 | `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised |
 | `src/lcm_recheck/report.py` | `section()`, `Tee` and `tee_output()`: the `--out` file with its header (date, command, versions + a script-specific suffix) and the script's closing line |
@@ -81,19 +81,20 @@ All commands run from the repository root.
 | `scripts/load_imdb.py` | Create and load `imdb`; check row counts, planner settings and that hints work |
 | `scripts/run_plans.py` | EXPLAIN (and optionally EXPLAIN ANALYZE) candidate plans; writes the authors' run-file format; resumable |
 | `scripts/extract_runs.py` | Run files to one CSV row per candidate plan (cost, runtime, plan-shape hash); parsing in `runs.py` |
-| `scripts/make_pg18_predcsv.py` | PG10 runtimes + PG18 costs to prediction CSVs in `<eval_root>/postgres_18/` |
-| `scripts/diagnose_hints.py` | Re-plan with pg_hint_plan debug output; find hint syntax errors and unused hints |
-| `scripts/check_pg16_ties.py` | Test whether the authors' Sc. PG16 shows the same broken-hint ties |
+| `scripts/make_predcsv.py` | PG10 runtimes + one version's explain-only costs to prediction CSVs in `<out_root>/<label>/imdb/join_order_full/` (`--out_root` default `results/predictions`; refuses to replace an existing label folder without `--overwrite`) |
+| `scripts/diagnose_hints.py` | Re-plan with pg_hint_plan debug output; find hint syntax errors and unused hints; Sc. PG18 from `--extra_root` (default `results/predictions`) |
+| `scripts/check_pg16_ties.py` | Test whether the authors' Sc. PG16 shows the same broken-hint ties; generated models from `--extra_root` (default `results/predictions`) |
 | `scripts/check_pg16_labels.py` | Which runtimes and candidate set the authors used for Sc. PG10 / Sc. PG16 (four hypotheses); prints only |
 | `scripts/check_pinned.py` | Whether Sc. PG16 was built from the pinned SQL (maps pinned lines to PG10 plans via `Leading(...)`); prints only |
 | `scripts/inspect_e1_inputs.py` | E1 input check: which SQL each authors' run used, and whether plan positions line up across folders; no arguments, prints only |
-| `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` (CLI; the tests are in `tasks/`) |
+| `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` (CLI; the tests are in `tasks/`). `paper --extra_root` (default `results/predictions`): Task 1 reads a model from there if it has a folder there (a copy in `--eval_root` is then ignored, with a note on stderr) |
 | `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; streams them via `runs.load_run` (ijson) (CLI; the tests are in `tasks/bias_data.py`) |
 | `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions (CLI; the tests are in `tasks/bias_models.py`) |
 | `results/pg10_paper.csv` | `extract_runs.py` output for the authors' PG10 runs (E1 labels) |
 | `results/pg16_paper.csv` | `extract_runs.py` output for the authors' PG16 runs (`--version pg16_paper`); input to `check_pg16_labels.py` |
 | `results/pg18_explain.csv`, `results/pg18_explain_fixed.csv` | PG18 costs on the original and the fixed pinned SQL |
 | `results/pg18_hint_status.csv`, `results/pg18_hint_status_fixed.csv` | `diagnose_hints.py` output for both variants |
+| `results/predictions/postgres_18/`, `results/predictions/postgres_18_asis/` | `make_predcsv.py` output (Sc. PG18 on the fixed and on the original pinned SQL), same layout as an eval root; committed |
 | `results/sigtests_paper.txt` | `sigtests.py paper` output, all tasks |
 | `results/bias_data_imdb.txt` | `bias_data.py` on IMDB with the retraining queries (Tests 1a-1e, leakage check) |
 | `results/bias_data_19dbs.txt` | `bias_data.py` on the 19 other training databases (1a, 1b, 1d, 1e) |
@@ -108,10 +109,7 @@ Known problems to fix:
 
 - `check_pg16_labels.py`, `check_pinned.py`, `check_pg16_ties.py`, `inspect_e1_inputs.py` and
   `check_downloads.py` have no `--out`.
-- `make_pg18_predcsv.py` is hard-wired to PG18.
 - The SQL fix exists only as a shell loop.
-- Generated prediction folders (`postgres_18`, `postgres_18_asis`) are written **inside**
-  `lcm-eval/data/evaluation/`, which is gitignored and belongs to the authors.
 - `extract_runs.py` averages a plan's repetitions with `sum/len`, so one repetition without an `Execution Time`
   (NaN from `exec_ms()`) makes `runtime_s` NaN; `bias_data.py`'s `mean_exec_ms()` drops such repetitions.
 - `plan_nodes()` names aggregate nodes differently per format: `Finalize Aggregate`/`Partial Aggregate` in text
@@ -139,13 +137,15 @@ for f in lcm-eval/data/workloads/evaluation/imdb/join_order_full_pg_10_hinted/*.
 # PG18 costs (explain only, a few minutes)
 uv run python scripts/run_plans.py --explain_only --port 5418 --sql_dir results/sql_pinned_fixed --out_dir results/runs_pg18_explain_fixed --queries "${Q58[@]}"
 uv run python scripts/extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --out results/pg18_explain_fixed.csv
-uv run python scripts/make_pg18_predcsv.py --pg10 results/pg10_paper.csv --pg18 results/pg18_explain_fixed.csv --eval_root lcm-eval/data/evaluation
+# prediction CSVs into results/predictions/postgres_18/ (eval_root is only read: Sc. PG10/PG16 for the printed comparison)
+uv run python scripts/make_predcsv.py --label postgres_18 --pg10 results/pg10_paper.csv --costs results/pg18_explain_fixed.csv --eval_root lcm-eval/data/evaluation
 uv run python scripts/diagnose_hints.py --pg18 results/pg18_explain_fixed.csv --port 5418 --eval_root lcm-eval/data/evaluation --out results/pg18_hint_status_fixed.csv
 uv run python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --tasks join --out results/sigtests_e1.txt
 ```
 
-The unfixed variant uses the original SQL folder, writes `runs_pg18_explain` and `pg18_explain.csv`, and its
-prediction folder is kept as `postgres_18_asis`.
+`diagnose_hints.py` and `sigtests.py paper` read `postgres_18` from `results/predictions/` (their `--extra_root`
+default). The unfixed variant uses the original SQL folder, writes `runs_pg18_explain` and `pg18_explain.csv`, and its
+prediction folder is `postgres_18_asis` (`make_predcsv.py --label postgres_18_asis --costs results/pg18_explain.csv ...`).
 
 ## Statistical protocol (never change silently)
 
@@ -223,7 +223,12 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
 
 ## Verification (after every change)
 
-1. `uv run ruff check .` and `uv run pytest`.
+1. Until step 9 adds `ruff` and `pytest` as dev dependencies, use exactly these commands:
+   ```bash
+   uvx ruff check src tests tools/check_json_vs_raw.py   # must be clean
+   uvx ruff check scripts                                # at most 30 findings (the count before step 7)
+   uv run --with pytest pytest
+   ```
    - Unit tests use tiny fixture run files in `tests/fixtures/`, never the real data.
    - Tests that need PostgreSQL are marked `@pytest.mark.db` and skip themselves when port 5418 is
      unreachable.
@@ -236,7 +241,7 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
    tools/verify_golden.sh --no-db         # without the database
    tools/verify_golden.sh --db-only       # only the database checks
    tools/verify_golden.sh --quick         # only argparse defaults and --help, against --base (seconds)
-   tools/verify_golden.sh --base <commit> # reference commit for defaults, --help and make_pg18_predcsv stdout
+   tools/verify_golden.sh --base <commit> # reference commit for defaults, --help and make_predcsv stdout
    ```
    - No step changes a command-line default unless it says so. `tools/dump_defaults.py` prints every argparse
      default of a script; the tool compares these defaults and `--help` with the scripts and `src/` at
@@ -245,6 +250,13 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
      same commit.
    - CSV outputs (`extract_runs`, prediction CSVs) must be identical. Use `cmp`, or pandas with exact
      comparison for floats that are only re-serialised.
+   - `make_predcsv.py` (both labels, into a temp `--out_root`) and the committed `results/predictions/<label>/`
+     must be byte-identical to `results/golden/predictions/<label>/` (`diff -r`).
+   - Checks that read generated predictions (`sigtests.py paper`, `check_pg16_ties.py`, `diagnose_hints.py`) get
+     a temp eval root that links every folder of `lcm-eval/data/evaluation/` except those also in
+     `results/predictions/`, plus `--extra_root results/predictions` (and, for `sigtests.py`, `--retrain_root
+     lcm-eval/data/retraining_evaluation`, so that the printed path is unchanged). This proves they read the
+     generated predictions from `results/predictions/`.
    - `extract_runs.py` on the full run folders must reproduce the committed CSVs (`cmp`):
      `results/runs_pg18_explain_fixed` (`--version pg18_fixed`) → `results/pg18_explain_fixed.csv`,
      `results/runs_pg18_explain` (`pg18_explain`) → `results/pg18_explain.csv`, and, if downloaded, the

@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from lcm_recheck import stats
-from lcm_recheck.config import FAMILY_IDS, LABEL_SOURCE, REF, SCAN_FOLDER, B
+from lcm_recheck.config import FAMILY_IDS, LABEL_SOURCE, PG16, PG18, REF, SCAN_FOLDER, B
 from lcm_recheck.stats import boot_fast, resample_idx
 from lcm_recheck.tasks import (
     access,
@@ -148,6 +148,24 @@ def test_bias_models_test2_draws_one_matrix(monkeypatch: pytest.MonkeyPatch, tmp
     bias_models.test2(argparse.Namespace(eval_root=str(tmp_path)))
     assert "2c" in capsys.readouterr().out
     assert [(f, n) for f, n, _ in calls] == [("bias_models/test2", 3)]
+
+
+def test_task_join_reads_generated_models_from_extra_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Any,
+                                                          capsys: pytest.CaptureFixture[str]) -> None:
+    ev, ex = tmp_path / "eval", tmp_path / "extra"
+    for d in (ev / REF, ev / PG16, ev / PG18, ex / PG18):
+        d.mkdir(parents=True)
+    asked: dict[str, str] = {}
+
+    def fake_load_preds(root: str, model: str) -> None:
+        asked[model] = root
+
+    monkeypatch.setattr(join, "load_preds", fake_load_preds)
+    join.task_join(argparse.Namespace(eval_root=str(ev), extra_root=str(ex)))
+    assert "skipped" in capsys.readouterr().out
+    assert asked[PG18] == str(ex)
+    assert all(root == str(ev) for m, root in asked.items() if m != PG18)
+    assert {REF, PG16, PG18, "flat"} <= set(asked)
 
 
 def test_every_used_family_is_registered() -> None:

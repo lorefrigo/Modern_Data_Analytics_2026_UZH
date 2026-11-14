@@ -9,11 +9,12 @@ Rows of the Sc. PG16 / Sc. PG18 files = pinned lines with a PG10 runtime, in pin
 Usage (from MDA/):
   uv run python scripts/check_pg16_ties.py --pg10 results/pg10_paper.csv --pg18 results/pg18_explain.csv \
          --status results/pg18_hint_status.csv --eval_root lcm-eval/data/evaluation
+A model is read from --extra_root (default results/predictions) if it has a folder there, else from --eval_root.
 """
 import argparse, os
 import numpy as np, pandas as pd
 
-from lcm_recheck.config import PG_VERSIONS, JOIN_ORDER_FOLDER
+from lcm_recheck.config import PG_VERSIONS, JOIN_ORDER_FOLDER, PRED_ROOT, model_root
 from lcm_recheck.hints import leading
 
 
@@ -22,6 +23,8 @@ def main():
     ap.add_argument("--pg10", required=True); ap.add_argument("--pg18", required=True)
     ap.add_argument("--status", required=True); ap.add_argument("--eval_root", required=True)
     ap.add_argument("--models", nargs="+", default=PG_VERSIONS)
+    ap.add_argument("--extra_root", default=PRED_ROOT,
+                    help="generated prediction folders (make_predcsv.py); used for a model that has a folder here")
     a = ap.parse_args()
 
     pg10, pg18 = pd.read_csv(a.pg10), pd.read_csv(a.pg18)
@@ -39,7 +42,8 @@ def main():
         broken = ~d.leading_used.values
         row = dict(query=q, rows=len(d), broken=int(broken.sum()))
         for m in a.models:
-            f = pd.read_csv(os.path.join(a.eval_root, m, "imdb", JOIN_ORDER_FOLDER, f"{q}_0_test_pred.csv"))
+            f = pd.read_csv(os.path.join(model_root(a.eval_root, a.extra_root, m), m, "imdb", JOIN_ORDER_FOLDER,
+                                         f"{q}_0_test_pred.csv"))
             if len(f) != len(d):
                 row[f"{m}_note"] = "row count differs"; continue
             p = pd.Series(np.round(f.prediction.values, 9))

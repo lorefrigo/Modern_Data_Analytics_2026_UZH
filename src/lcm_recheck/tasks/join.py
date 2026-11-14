@@ -6,7 +6,8 @@ index matrix (stats.resample_idx), shared by all its models. Family ids: config.
 
 Usage:
   from lcm_recheck.tasks.join import task_join
-  task_join(argparse.Namespace(eval_root="lcm-eval/data/evaluation"))
+  task_join(argparse.Namespace(eval_root="lcm-eval/data/evaluation", extra_root="results/predictions"))
+A model is read from extra_root if it has a folder there (generated predictions, make_predcsv.py), else from eval_root.
 """
 import argparse
 import glob
@@ -16,7 +17,14 @@ import re
 import numpy as np
 import pandas as pd
 
-from lcm_recheck.config import ACT_CARD_LCMS, JOIN_ORDER_FOLDER, LCMS, PG_VERSIONS, REF
+from lcm_recheck.config import (
+    ACT_CARD_LCMS,
+    JOIN_ORDER_FOLDER,
+    LCMS,
+    PG_VERSIONS,
+    REF,
+    model_root,
+)
 from lcm_recheck.report import section
 from lcm_recheck.stats import boot, ci_p, holm, resample_idx
 from lcm_recheck.tasks.common import compare, finish_family, record, show
@@ -43,7 +51,8 @@ def selected(df: pd.DataFrame) -> pd.DataFrame:
 
 def task_join(a: argparse.Namespace) -> None:
     section("TASK 1: JOIN ORDERING (JOB-light, IMDB) - Fig. 1, Fig. 4")
-    preds = {m: load_preds(a.eval_root, m) for m in [REF] + LCMS + PG_VERSIONS + ACT_CARD_LCMS}
+    preds = {m: load_preds(model_root(a.eval_root, a.extra_root, m), m)
+             for m in [REF] + LCMS + PG_VERSIONS + ACT_CARD_LCMS}
     preds = {m: d for m, d in preds.items() if d is not None}
     if REF not in preds:
         print(f"skipped: no Sc. PG10 predictions under {a.eval_root}/postgres/imdb/join_order_full/")
