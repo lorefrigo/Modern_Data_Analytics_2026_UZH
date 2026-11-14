@@ -196,7 +196,13 @@ Do one step per commit and verify each step (see "Verification") before the next
    how many lines it changed (771 expected).
 9. Console entry points in `pyproject.toml` (e.g. `uv run lcm-sigtests paper ...`), plus `pytest` and
    `ruff` as dev dependencies.
-10. Update the README's command section from the final code.
+10. Update the README's command section from the final code. Before the README is written, in this order:
+    - One commit across all scripts: give every command-line option a `--help` text. No default changes;
+      `tools/verify_golden.sh` then reports DIFFERENT only for the `--help` checks of the scripts touched.
+    - `tee_output()` (`src/lcm_recheck/report.py`) prints the script's closing line ("Output written to
+      ...") only when the run finished without an exception. Today it is also printed on errors, as the
+      scripts did before step 3. Stdout is still restored and the file still closed in `finally`. Update
+      the test in `tests/test_report.py` that pins today's behaviour.
 
 Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
 
