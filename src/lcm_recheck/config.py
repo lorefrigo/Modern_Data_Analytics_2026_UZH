@@ -17,6 +17,7 @@ _WORKLOADS_IMDB = f"{DATA_ROOT}/workloads/evaluation/imdb"
 _RUNS_IMDB = f"{DATA_ROOT}/runs/raw/imdb"
 SQL_FULL_DIR = f"{_WORKLOADS_IMDB}/join_order_full"           # candidate plans, Leading(...) hints only
 SQL_PINNED_DIR = f"{_WORKLOADS_IMDB}/join_order_full_pg_10_hinted"   # PG10's physical plans, pinned by hints
+SQL_PINNED_FIXED_DIR = "results/sql_pinned_fixed"          # SQL_PINNED_DIR with NestedLoop( -> NestLoop( (fix_hints.py)
 RUNS_PG10_DIR = f"{_RUNS_IMDB}/join_order_full"               # authors' PG10 run files
 RUNS_PG16_DIR = f"{_RUNS_IMDB}/join_order_full_v16"           # authors' PG16 run files
 RUNS_JSON_PG10_DIR = f"{DATA_ROOT}/runs/json/imdb/join_order_full"   # the same PG10 workload, JSON EXPLAIN mode

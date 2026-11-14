@@ -7,7 +7,8 @@
 #   2. golden outputs without the database: sigtests paper/versions, bias_models, bias_data, extract_runs on the
 #      full run folders (cmp with the committed CSVs), the stdout of the check_* scripts and of
 #      tools/check_json_vs_raw.py, make_predcsv CSVs and the committed results/predictions/ against
-#      results/golden/predictions/ (and its stdout against the --base code);
+#      results/golden/predictions/ (and its stdout against the --base code), fix_hints into a temp folder against
+#      results/sql_pinned_fixed/ (diff -r) and its totals (771 lines in 20 of 58 files);
 #   3. database checks (read-only, no EXPLAIN ANALYZE): run_plans --explain_only est_cost, load_imdb
 #      --check_only, diagnose_hints. Skipped with a note if the server is not reachable (never started here).
 # Checks that read generated predictions (sigtests paper, check_pg16_ties, diagnose_hints) get an eval root without
@@ -183,6 +184,24 @@ if [ "$RUN_NODB" = 1 ]; then
   # JSON-mode vs raw-mode parsing in lcm_recheck.runs on the authors' PG10 runs (runs/json read from runs.zip in memory)
   if need "check_json_vs_raw stdout" lcm-eval/data/runs/raw/imdb/join_order_full lcm-eval/data/runs.zip; then
     check_stdout "check_json_vs_raw stdout" $G/check_json_vs_raw.stdout check_json_vs_raw $PY tools/check_json_vs_raw.py
+  fi
+
+  # fix_hints into a scratch folder: byte-identical to results/sql_pinned_fixed/ (made by the former shell loop),
+  # and the reported totals must be the known ones
+  SQL_PINNED=$($PY -c "from lcm_recheck.config import SQL_PINNED_DIR; print(SQL_PINNED_DIR)")
+  if need "fix_hints" "$SQL_PINNED" results/sql_pinned_fixed &&
+     run "fix_hints" fix_hints $PY scripts/fix_hints.py --sql_dir "$SQL_PINNED" --out_dir "$T/sql_fixed"; then
+    if diff -r "$T/sql_fixed" results/sql_pinned_fixed > "$T/fix_hints.diff"; then
+      result IDENTICAL "fix_hints vs results/sql_pinned_fixed ($(ls "$T/sql_fixed" | wc -l | tr -d ' ') files)"
+    else
+      result DIFFERENT "fix_hints vs results/sql_pinned_fixed" "diff: $T/fix_hints.diff"
+    fi
+    expected="771 lines changed in 20 of 58 files (819 replacements of NestedLoop( by NestLoop(); written to $T/sql_fixed"
+    if [ "$(tail -1 "$T/fix_hints.out")" = "$expected" ]; then
+      result IDENTICAL "fix_hints totals (771 lines in 20 of 58 files)"
+    else
+      result DIFFERENT "fix_hints totals" "got: $(tail -1 "$T/fix_hints.out")"
+    fi
   fi
 
   # make_predcsv into a scratch out_root, and the committed $PRED: both byte-identical to $G/predictions/

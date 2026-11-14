@@ -60,7 +60,7 @@ All commands run from the repository root.
 |---|---|
 | `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `PRED_ROOT` (`results/predictions`), `default_retrain_root()`, `model_root()` (a model's predictions come from `extra_root` if it has a folder there, else from `eval_root`), `shadowed_models()` |
 | `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
-| `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised |
+| `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised; `fix_nestloop()`: `NestedLoop(` → `NestLoop(` on the bytes of a SQL file, with the number of changed lines and replacements |
 | `src/lcm_recheck/report.py` | `section()`, `Tee` and `tee_output()`: the `--out` file with its header (date, command, versions + a script-specific suffix) and the script's closing line |
 | `src/lcm_recheck/runs.py` | Run-file parsing: `load_run()` (ijson streaming or `json.load`; errors on files without `query_list` and on parsed_plans files), `json_root()` (the three JSON plan shapes `[{"Plan": …}]`, `{"Plan": …}`, bare node), `lines()`, `exec_ms()`, `top_cost()`, `plan_shape()`, `plan_nodes()` |
 | `src/lcm_recheck/stats.py` | Statistics helpers, no module-level generator: `family_rng()`/`resample_idx()` (one generator and one resample-index matrix per test family), `holm()`, `boot()`/`boot_fast()` (apply the index matrix they are given), `ci()`, `boot_p()`, `ci_p()`, `wilcoxon_p()`, `mcnemar()`, `wilson()`, `cp_upper()` |
@@ -71,6 +71,7 @@ All commands run from the repository root.
 | `tests/test_config.py` | Consistency checks of `config.py` (no data, no database); pins the full list of `FAMILY_IDS` |
 | `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
 | `tests/test_hints.py`, `tests/test_report.py`, `tests/test_runs.py`, `tests/test_stats.py` | Unit tests of the package helpers (no data, no database); `test_stats.py` also pins the family seeding (`[0, crc32(family_id)]`) and how `boot()`/`boot_fast()` apply the index matrix |
+| `tests/test_fix_hints.py` | `fix_hints.py` on a tiny SQL folder in `tmp_path`: byte-exact copies, the printed counts, no overwrite without `--overwrite` |
 | `tests/test_tasks.py` | Wiring of `tasks/`: no module-level generator anywhere; which family ids `compare()`, `compare_pick()`, `physical_family()`, `versions()` and `bias_models.test2()` use; members of a family share one matrix; no dependence on call order; `SUMMARY` order |
 | `tests/test_scripts.py` | Every script only defines things on import (nothing runs or prints) and has a `main()` |
 | `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
@@ -82,6 +83,7 @@ All commands run from the repository root.
 | `scripts/run_plans.py` | EXPLAIN (and optionally EXPLAIN ANALYZE) candidate plans; writes the authors' run-file format; resumable |
 | `scripts/extract_runs.py` | Run files to one CSV row per candidate plan (cost, runtime, plan-shape hash); parsing in `runs.py` |
 | `scripts/make_predcsv.py` | PG10 runtimes + one version's explain-only costs to prediction CSVs in `<out_root>/<label>/imdb/join_order_full/` (`--out_root` default `results/predictions`; refuses to replace an existing label folder without `--overwrite`) |
+| `scripts/fix_hints.py` | Fixed copy of the pinned SQL (`NestedLoop(` → `NestLoop(`, byte-level) from `--sql_dir` (default the authors' `join_order_full_pg_10_hinted`) to `--out_dir` (default `results/sql_pinned_fixed`); prints the changed lines per file and in total (771 lines in 20 of 58 files); refuses to replace existing `.sql` files without `--overwrite` |
 | `scripts/diagnose_hints.py` | Re-plan with pg_hint_plan debug output; find hint syntax errors and unused hints; Sc. PG18 from `--extra_root` (default `results/predictions`) |
 | `scripts/check_pg16_ties.py` | Test whether the authors' Sc. PG16 shows the same broken-hint ties; generated models from `--extra_root` (default `results/predictions`) |
 | `scripts/check_pg16_labels.py` | Which runtimes and candidate set the authors used for Sc. PG10 / Sc. PG16 (four hypotheses); prints only |
@@ -102,14 +104,13 @@ All commands run from the repository root.
 | `results/osf_listing.tsv` | OSF archive sizes from `osf_fetch.py` |
 | `results/lcm-eval-commit.txt` | The pinned `lcm-eval` commit hash |
 | `results/runs_*/` | Raw run files (gitignored) |
-| `results/sql_pinned_fixed/` | Pinned SQL with `NestedLoop(` replaced by `NestLoop(` (gitignored, regenerable) |
+| `results/sql_pinned_fixed/` | Pinned SQL with `NestedLoop(` replaced by `NestLoop(`, written by `fix_hints.py` (gitignored, regenerable) |
 | `results/golden/` | Local regression reference, see "Verification" (gitignored): copies of the committed CSVs and `sigtests_paper.txt`, plus `sigtests_paper_all.txt`, `bias_models_rerun.txt`, `rerun_pg18_explain_fixed.csv`, `check_json_vs_raw.stdout` and `predictions/postgres_18{,_asis}/` |
 
 Known problems to fix:
 
 - `check_pg16_labels.py`, `check_pinned.py`, `check_pg16_ties.py`, `inspect_e1_inputs.py` and
   `check_downloads.py` have no `--out`.
-- The SQL fix exists only as a shell loop.
 - `extract_runs.py` averages a plan's repetitions with `sum/len`, so one repetition without an `Execution Time`
   (NaN from `exec_ms()`) makes `runtime_s` NaN; `bias_data.py`'s `mean_exec_ms()` drops such repetitions.
 - `plan_nodes()` names aggregate nodes differently per format: `Finalize Aggregate`/`Partial Aggregate` in text
@@ -131,9 +132,7 @@ Q58=($(uv run python -c "from lcm_recheck.config import JOB_LIGHT_IDS; print(*JO
 # PG10 runtimes from the authors' raw runs (check_downloads.py prints the exact --runs path)
 uv run python scripts/extract_runs.py --runs <authors' PG10 run folder> --version pg10_paper --out results/pg10_paper.csv
 # fixed copy of the pinned SQL
-mkdir -p results/sql_pinned_fixed
-for f in lcm-eval/data/workloads/evaluation/imdb/join_order_full_pg_10_hinted/*.sql; do
-  sed 's/NestedLoop(/NestLoop(/g' "$f" > "results/sql_pinned_fixed/$(basename "$f")"; done
+uv run python scripts/fix_hints.py   # 771 lines in 20 queries; --overwrite to replace an existing results/sql_pinned_fixed
 # PG18 costs (explain only, a few minutes)
 uv run python scripts/run_plans.py --explain_only --port 5418 --sql_dir results/sql_pinned_fixed --out_dir results/runs_pg18_explain_fixed --queries "${Q58[@]}"
 uv run python scripts/extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --out results/pg18_explain_fixed.csv
@@ -252,6 +251,9 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
      comparison for floats that are only re-serialised.
    - `make_predcsv.py` (both labels, into a temp `--out_root`) and the committed `results/predictions/<label>/`
      must be byte-identical to `results/golden/predictions/<label>/` (`diff -r`).
+   - `fix_hints.py` (default `--sql_dir`, into a temp `--out_dir`) must be byte-identical to
+     `results/sql_pinned_fixed/` (`diff -r`, 58 files), and its last line must report 771 lines changed in 20 of
+     58 files (819 replacements).
    - Checks that read generated predictions (`sigtests.py paper`, `check_pg16_ties.py`, `diagnose_hints.py`) get
      a temp eval root that links every folder of `lcm-eval/data/evaluation/` except those also in
      `results/predictions/`, plus `--extra_root results/predictions` (and, for `sigtests.py`, `--retrain_root
