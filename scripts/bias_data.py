@@ -24,24 +24,15 @@ Usage (from the MDA folder):
 
 Install ijson (pip install ijson) to read large training files without loading them into memory.
 """
-import argparse, json, os, re
+import argparse, os, re
 from collections import Counter
 import numpy as np, pandas as pd
 from scipy.stats import beta, fisher_exact, ks_2samp, norm
 
 from lcm_recheck.config import SCAN_COLUMNS
 from lcm_recheck.report import section, tee_output
-from lcm_recheck.runs import exec_ms, lines
+from lcm_recheck.runs import SCAN_KIND, exec_ms, ijson, load_run, plan_nodes
 
-try:
-    import ijson
-except ImportError:
-    ijson = None
-
-SCAN_KIND = {"Seq Scan": "seq", "Index Scan": "index", "Index Only Scan": "index", "Bitmap Heap Scan": "bitmap"}
-NODE_RE = re.compile(r"^(?P<op>[A-Z][A-Za-z ]*?)(?: Backward)?(?: using (?P<idx>\S+))?"
-                     r"(?: on (?P<rel>\S+)(?: (?P<alias>\S+))?)?\s+\(cost=")
-ACT_RE = re.compile(r"\(actual time=[\d.]+\.\.[\d.]+ rows=(\d+) loops=(\d+)\)")
 PARAM_RE = re.compile(r"(?:=|<|>)\s*\(?\s*(?:\$\d|\"?[A-Za-z_]\w*\"?\.\"?[A-Za-z_])")   # col = other.col / $1
 COND_COL_RE = re.compile(r"\(*\s*(?:\"?\w+\"?\.)?\"?(\w+)\"?\)?(?:::[\w ]+?)?\s*(?:>=|<=|<>|!=|=|<|>|~~)")
 SQL_COL_RE = re.compile(r"\"?(\w+)\"?\.\"?(\w+)\"?\s*(?:>=|<=|<>|!=|=|<|>|\bNOT LIKE\b|\bLIKE\b|\bIS\b|\bIN\b)", re.I)
@@ -49,31 +40,6 @@ HINT_RE = re.compile(r"/\*\+.*?\*/", re.S)
 
 
 # ----------------------------------------------------------------------------- reading run files
-def load_run(path, max_queries=None):
-    """Returns (iterator over query entries, database_stats)."""
-    with open(path, "rb") as f:
-        head = f.read(4096).decode("utf-8", "ignore")
-    if '"parsed_plans"' in head and '"query_list"' not in head:
-        raise SystemExit(f"{path} is a parsed_plans file. Use the run file of the same workload from runs/raw "
-                         f"(or runs/json) instead.")
-    if ijson is not None:
-        with open(path, "rb") as f:
-            stats = next(ijson.items(f, "database_stats", use_float=True), None)
-
-        def gen():
-            with open(path, "rb") as f:
-                for i, q in enumerate(ijson.items(f, "query_list.item", use_float=True)):
-                    if max_queries and i >= max_queries:
-                        break
-                    yield q
-        return gen(), stats
-    run = json.load(open(path))
-    if "query_list" not in run:
-        raise SystemExit(f"{path} is not a run file (no 'query_list')")
-    ql = run["query_list"][:max_queries] if max_queries else run["query_list"]
-    return iter(ql), run.get("database_stats")
-
-
 def table_sizes(stats):
     if not stats:
         return {}
@@ -86,49 +52,6 @@ def column_stats(stats):
         return {}
     return {(str(c["tablename"]).lower(), str(c["attname"]).lower()): (c.get("n_distinct"), c.get("correlation"))
             for c in stats.get("column_stats", []) if c.get("tablename") and c.get("attname")}
-
-
-def clean_rel(rel):
-    return rel.split(".")[-1].strip('"') if rel else rel
-
-
-def plan_nodes(plan):
-    """All operator nodes of one EXPLAIN output (raw text rows or JSON), with the fields used here."""
-    if isinstance(plan, list) and plan and isinstance(plan[0], dict):
-        plan = plan[0]
-    if isinstance(plan, dict):
-        out = []
-
-        def walk(n):
-            op, par = n.get("Node Type", ""), bool(n.get("Parallel Aware"))
-            out.append(dict(op=op, kind=SCAN_KIND.get(op), parallel=par, rel=clean_rel(n.get("Relation Name")),
-                            rows=n.get("Actual Rows"), loops=n.get("Actual Loops"),
-                            removed=n.get("Rows Removed by Filter", 0) or 0,
-                            cond=n.get("Index Cond") or n.get("Recheck Cond")))
-            for c in n.get("Plans", []):
-                walk(c)
-        walk(plan.get("Plan", plan))
-        return out
-    out, cur = [], None
-    for l in lines(plan):
-        t = l.strip()
-        if t.startswith("->"):
-            t = t[2:].strip()
-        if "(cost=" in t:
-            m, act = NODE_RE.match(t), ACT_RE.search(t)
-            op = m.group("op").strip() if m else ""
-            par = op.startswith("Parallel ")
-            op = op[len("Parallel "):] if par else op
-            cur = dict(op=op, kind=SCAN_KIND.get(op), parallel=par, rel=clean_rel(m.group("rel") if m else None),
-                       rows=int(act.group(1)) if act else None, loops=int(act.group(2)) if act else None,
-                       removed=0, cond=None)
-            out.append(cur)
-        elif cur is not None:
-            if t.startswith("Rows Removed by Filter:"):
-                cur["removed"] = int(t.split(":")[1])
-            elif t.startswith(("Index Cond:", "Recheck Cond:")):
-                cur["cond"] = t.split(":", 1)[1].strip()
-    return out
 
 
 def scan_records(plan, sizes):

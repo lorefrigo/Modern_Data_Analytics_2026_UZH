@@ -62,7 +62,7 @@ All commands run from the repository root.
 | `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
 | `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised |
 | `src/lcm_recheck/report.py` | `section()`, `Tee` and `tee_output()`: the `--out` file with its header (date, command, versions + a script-specific suffix) and the script's closing line |
-| `src/lcm_recheck/runs.py` | Run-file parsing: `lines()`, `exec_ms()` (the rest follows in step 4) |
+| `src/lcm_recheck/runs.py` | Run-file parsing: `load_run()` (ijson streaming or `json.load`; errors on files without `query_list` and on parsed_plans files), `lines()`, `exec_ms()`, `top_cost()`, `plan_shape()`, `plan_nodes()` |
 | `src/lcm_recheck/stats.py` | Statistics helpers: `holm()` (the rest follows in step 5) |
 | `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
 | `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
@@ -74,7 +74,7 @@ All commands run from the repository root.
 | `scripts/check_downloads.py` | Report which prediction files are present; constants from `config.py` |
 | `scripts/load_imdb.py` | Create and load `imdb`; check row counts, planner settings and that hints work |
 | `scripts/run_plans.py` | EXPLAIN (and optionally EXPLAIN ANALYZE) candidate plans; writes the authors' run-file format; resumable |
-| `scripts/extract_runs.py` | Run files to one CSV row per candidate plan (cost, runtime, plan-shape hash) |
+| `scripts/extract_runs.py` | Run files to one CSV row per candidate plan (cost, runtime, plan-shape hash); parsing in `runs.py` |
 | `scripts/make_pg18_predcsv.py` | PG10 runtimes + PG18 costs to prediction CSVs in `<eval_root>/postgres_18/` |
 | `scripts/diagnose_hints.py` | Re-plan with pg_hint_plan debug output; find hint syntax errors and unused hints |
 | `scripts/check_pg16_ties.py` | Test whether the authors' Sc. PG16 shows the same broken-hint ties |
@@ -82,7 +82,7 @@ All commands run from the repository root.
 | `scripts/check_pinned.py` | Whether Sc. PG16 was built from the pinned SQL (maps pinned lines to PG10 plans via `Leading(...)`); prints only |
 | `scripts/inspect_e1_inputs.py` | E1 input check: which SQL each authors' run used, and whether plan positions line up across folders; no arguments, prints only |
 | `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` |
-| `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; uses `ijson` |
+| `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; streams them via `runs.load_run` (ijson) |
 | `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions |
 | `results/pg10_paper.csv` | `extract_runs.py` output for the authors' PG10 runs (E1 labels) |
 | `results/pg16_paper.csv` | `extract_runs.py` output for the authors' PG16 runs (`--version pg16_paper`); input to `check_pg16_labels.py` |
@@ -109,6 +109,8 @@ Known problems to fix:
 - `sigtests.py` uses one module-level random generator, so bootstrap results depend on the order of calls.
   `bias_models.py` has its own module-level `RNG = np.random.default_rng(0)`; Test 2 draws one index matrix
   from it and shares it across 2a, 2b, 2c and all models.
+- `extract_runs.py` averages a plan's repetitions with `sum/len`, so one repetition without an `Execution Time`
+  (NaN from `exec_ms()`) makes `runtime_s` NaN; `bias_data.py`'s `mean_exec_ms()` drops such repetitions.
 
 ## E1 pipeline (current commands)
 
