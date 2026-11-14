@@ -63,10 +63,15 @@ All commands run from the repository root.
 | `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised |
 | `src/lcm_recheck/report.py` | `section()`, `Tee` and `tee_output()`: the `--out` file with its header (date, command, versions + a script-specific suffix) and the script's closing line |
 | `src/lcm_recheck/runs.py` | Run-file parsing: `load_run()` (ijson streaming or `json.load`; errors on files without `query_list` and on parsed_plans files), `json_root()` (the three JSON plan shapes `[{"Plan": …}]`, `{"Plan": …}`, bare node), `lines()`, `exec_ms()`, `top_cost()`, `plan_shape()`, `plan_nodes()` |
-| `src/lcm_recheck/stats.py` | Statistics helpers: `holm()` (the rest follows in step 5) |
+| `src/lcm_recheck/stats.py` | Statistics helpers, no generator of its own: `holm()`, `boot()`/`boot_fast()` (draw from the `rng` they are given), `ci()`, `boot_p()`, `ci_p()`, `wilcoxon_p()`, `mcnemar()`, `wilson()`, `cp_upper()` |
+| `src/lcm_recheck/tasks/common.py` | Shared by the `sigtests.py` tasks: the one sigtests generator `RNG`, the `SUMMARY` list (`record()`, `summary()`), `compare()`, `compare_pick()`, `finish_family()`, `show()`, `load_workload()`, `with_common_labels()` |
+| `src/lcm_recheck/tasks/join.py`, `access.py`, `physical.py`, `versions.py` | `sigtests.py paper` Tasks 1, 2, 3 and `sigtests.py versions` |
+| `src/lcm_recheck/tasks/bias_data.py` | Test 1 of the bias tests (run-file records, crossover rule, 1a-1e, leakage check) |
+| `src/lcm_recheck/tasks/bias_models.py` | Tests 2 and 3a of the bias tests, with their own generator `RNG` |
 | `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
 | `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
-| `tests/test_hints.py`, `tests/test_report.py`, `tests/test_runs.py`, `tests/test_stats.py` | Unit tests of the package helpers (no data, no database) |
+| `tests/test_hints.py`, `tests/test_report.py`, `tests/test_runs.py`, `tests/test_stats.py` | Unit tests of the package helpers (no data, no database); `test_stats.py` also pins the draw pattern of `boot()`/`boot_fast()` |
+| `tests/test_tasks.py` | Wiring of `tasks/`: every sigtests task draws from `tasks.common.RNG`, `bias_models` has its own, `stats` none; `SUMMARY` order |
 | `tests/test_scripts.py` | Every script only defines things on import (nothing runs or prints) and has a `main()` |
 | `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
 | `tools/dump_defaults.py` | Prints the argparse defaults of a script without running it (used by `verify_golden.sh`) |
@@ -82,9 +87,9 @@ All commands run from the repository root.
 | `scripts/check_pg16_labels.py` | Which runtimes and candidate set the authors used for Sc. PG10 / Sc. PG16 (four hypotheses); prints only |
 | `scripts/check_pinned.py` | Whether Sc. PG16 was built from the pinned SQL (maps pinned lines to PG10 plans via `Leading(...)`); prints only |
 | `scripts/inspect_e1_inputs.py` | E1 input check: which SQL each authors' run used, and whether plan positions line up across folders; no arguments, prints only |
-| `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` |
-| `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; streams them via `runs.load_run` (ijson) |
-| `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions |
+| `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` (CLI; the tests are in `tasks/`) |
+| `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; streams them via `runs.load_run` (ijson) (CLI; the tests are in `tasks/bias_data.py`) |
+| `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions (CLI; the tests are in `tasks/bias_models.py`) |
 | `results/pg10_paper.csv` | `extract_runs.py` output for the authors' PG10 runs (E1 labels) |
 | `results/pg16_paper.csv` | `extract_runs.py` output for the authors' PG16 runs (`--version pg16_paper`); input to `check_pg16_labels.py` |
 | `results/pg18_explain.csv`, `results/pg18_explain_fixed.csv` | PG18 costs on the original and the fixed pinned SQL |
@@ -107,8 +112,9 @@ Known problems to fix:
 - The SQL fix exists only as a shell loop.
 - Generated prediction folders (`postgres_18`, `postgres_18_asis`) are written **inside**
   `lcm-eval/data/evaluation/`, which is gitignored and belongs to the authors.
-- `sigtests.py` uses one module-level random generator, so bootstrap results depend on the order of calls.
-  `bias_models.py` has its own module-level `RNG = np.random.default_rng(0)`; Test 2 draws one index matrix
+- `sigtests.py` uses one module-level random generator (`tasks/common.py`'s `RNG`), so bootstrap results depend
+  on the order of calls. `bias_models.py` has its own module-level `RNG = np.random.default_rng(0)`
+  (`tasks/bias_models.py`); Test 2 draws one index matrix
   from it and shares it across 2a, 2b, 2c and all models.
 - `extract_runs.py` averages a plan's repetitions with `sum/len`, so one repetition without an `Execution Time`
   (NaN from `exec_ms()`) makes `runtime_s` NaN; `bias_data.py`'s `mean_exec_ms()` drops such repetitions.
