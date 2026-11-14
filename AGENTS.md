@@ -135,7 +135,7 @@ Q58=($(uv run python -c "from lcm_recheck.config import JOB_LIGHT_IDS; print(*JO
 uv run python scripts/extract_runs.py --runs <authors' PG10 run folder> --version pg10_paper --out results/pg10_paper.csv
 # fixed copy of the pinned SQL
 uv run python scripts/fix_hints.py   # 771 lines in 20 queries; --overwrite to replace an existing results/sql_pinned_fixed
-# PG18 costs (explain only, a few minutes)
+# PG18 costs (explain only, 3-4 s for the 58 queries in the README's fresh-clone test)
 uv run python scripts/run_plans.py --explain_only --port 5418 --sql_dir results/sql_pinned_fixed --out_dir results/runs_pg18_explain_fixed --queries "${Q58[@]}"
 uv run python scripts/extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --out results/pg18_explain_fixed.csv
 # prediction CSVs into results/predictions/postgres_18/ (eval_root is only read: Sc. PG10/PG16 for the printed comparison)

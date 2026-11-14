@@ -59,7 +59,7 @@ uv run python scripts/osf_fetch.py --match evaluation.zip   # the authors' predi
 uv run python scripts/check_downloads.py                     # which prediction files are present
 ```
 
-Then rerun the significance tests (about 1 minute) and bias Tests 2 and 3a (a few seconds). Compare the
+Then rerun the significance tests (47 s in our test) and bias Tests 2 and 3a (2 s). Compare the
 results with the committed files; only the header lines starting with `#` should differ:
 
 ```bash
@@ -69,8 +69,9 @@ diff <(grep -v '^#' results/sigtests_paper.txt) <(grep -v '^#' results/check/sig
 diff <(grep -v '^#' results/bias_models.txt) <(grep -v '^#' results/check/bias_models.txt)
 ```
 
-`osf_fetch.py` shows the size and asks before downloading. The fine-tuned predictions of Fig. 14 (bias
-Test 3a) are not in `evaluation.zip`. Without them, both scripts skip that part, as the committed outputs do.
+`osf_fetch.py` shows the size and asks before downloading; listing, download and unzipping took 15 s in our
+test. The fine-tuned predictions of Fig. 14 (bias Test 3a) are not in `evaluation.zip`. Without them, both
+scripts skip that part, as the committed outputs do.
 
 ## Full E1 reproduction (PostgreSQL 18)
 
@@ -95,8 +96,9 @@ uv run python scripts/diagnose_hints.py --pg18 results/check/pg18_explain_fixed.
 uv run python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --extra_root results/check/predictions --tasks join --out results/check/sigtests_e1.txt
 ```
 
-`run_plans.py --explain_only` only plans the queries and executes none. Each step after loading took seconds
-on a laptop; `sigtests.py --tasks join` took about 15 s.
+`run_plans.py --explain_only` only plans the queries and executes none; it took 3-4 s for all 58 queries in
+our tests on a laptop. The other steps after loading took 1-7 s each and `sigtests.py --tasks join` 14 s.
+The full load of the database was not timed.
 
 Each output can be compared with its committed counterpart, for example
 `cmp results/check/pg18_explain_fixed.csv results/pg18_explain_fixed.csv` and
@@ -117,7 +119,7 @@ uv run python scripts/bias_data.py --imdb_train_runs $R/imdb/workload_100k_s1_c8
 uv run python scripts/bias_data.py --train_runs $R/{accidents,airline,baseball,basketball,carcinogenesis,consumer,credit,employee,fhnk,financial,geneea,genome,hepatitis,movielens,seznam,ssb,tournament,tpc_h_pk,walmart}/workload_100k_s1_c8220.json --out results/check/bias_data_19dbs.txt
 ```
 
-The IMDB run takes a few seconds and the 19 other databases under a minute. Compare the results with
+In our tests the IMDB run took 2 s and the 19 other databases 41 s. Compare the results with
 `results/bias_data_imdb.txt` and `results/bias_data_19dbs.txt` as above.
 
 ## For contributors
