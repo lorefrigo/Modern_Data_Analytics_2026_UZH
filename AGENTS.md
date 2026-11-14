@@ -62,7 +62,7 @@ All commands run from the repository root.
 | `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
 | `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised |
 | `src/lcm_recheck/report.py` | `section()`, `Tee` and `tee_output()`: the `--out` file with its header (date, command, versions + a script-specific suffix) and the script's closing line |
-| `src/lcm_recheck/runs.py` | Run-file parsing: `load_run()` (ijson streaming or `json.load`; errors on files without `query_list` and on parsed_plans files), `lines()`, `exec_ms()`, `top_cost()`, `plan_shape()`, `plan_nodes()` |
+| `src/lcm_recheck/runs.py` | Run-file parsing: `load_run()` (ijson streaming or `json.load`; errors on files without `query_list` and on parsed_plans files), `json_root()` (the three JSON plan shapes `[{"Plan": …}]`, `{"Plan": …}`, bare node), `lines()`, `exec_ms()`, `top_cost()`, `plan_shape()`, `plan_nodes()` |
 | `src/lcm_recheck/stats.py` | Statistics helpers: `holm()` (the rest follows in step 5) |
 | `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
 | `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
@@ -70,6 +70,7 @@ All commands run from the repository root.
 | `tests/test_scripts.py` | Every script only defines things on import (nothing runs or prints) and has a `main()` |
 | `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
 | `tools/dump_defaults.py` | Prints the argparse defaults of a script without running it (used by `verify_golden.sh`) |
+| `tools/check_json_vs_raw.py` | Real-data check of `runs.py`: the authors' PG10 JOB-light runs in JSON mode (`runs/json`, read from `lcm-eval/data/runs.zip` in memory) vs raw mode; `top_cost` and the `plan_shape` grouping must agree (used by `verify_golden.sh`) |
 | `scripts/osf_fetch.py` | List or selectively download OSF files (shows sizes first) |
 | `scripts/check_downloads.py` | Report which prediction files are present; constants from `config.py` |
 | `scripts/load_imdb.py` | Create and load `imdb`; check row counts, planner settings and that hints work |
@@ -96,7 +97,7 @@ All commands run from the repository root.
 | `results/lcm-eval-commit.txt` | The pinned `lcm-eval` commit hash |
 | `results/runs_*/` | Raw run files (gitignored) |
 | `results/sql_pinned_fixed/` | Pinned SQL with `NestedLoop(` replaced by `NestLoop(` (gitignored, regenerable) |
-| `results/golden/` | Local regression reference, see "Verification" (gitignored): copies of the committed CSVs and `sigtests_paper.txt`, plus `sigtests_paper_all.txt`, `bias_models_rerun.txt`, `rerun_pg18_explain_fixed.csv` and `predictions/postgres_18{,_asis}/` |
+| `results/golden/` | Local regression reference, see "Verification" (gitignored): copies of the committed CSVs and `sigtests_paper.txt`, plus `sigtests_paper_all.txt`, `bias_models_rerun.txt`, `rerun_pg18_explain_fixed.csv`, `check_json_vs_raw.stdout` and `predictions/postgres_18{,_asis}/` |
 
 Known problems to fix:
 
@@ -111,6 +112,14 @@ Known problems to fix:
   from it and shares it across 2a, 2b, 2c and all models.
 - `extract_runs.py` averages a plan's repetitions with `sum/len`, so one repetition without an `Execution Time`
   (NaN from `exec_ms()`) makes `runtime_s` NaN; `bias_data.py`'s `mean_exec_ms()` drops such repetitions.
+- `plan_nodes()` names aggregate nodes differently per format: `Finalize Aggregate`/`Partial Aggregate` in text
+  mode, `Aggregate` in JSON (9,903 plan pairs each in `check_json_vs_raw.py`); no current test depends on them.
+- `plan_shape()` masks every number in JSON mode too (all 10,351 of the authors' JSON hashes are unchanged when every
+  numeric field is perturbed). But JSON plans from `EXPLAIN ANALYZE` carry run-dependent structure (the `Workers`
+  list, one entry per launched worker; `Sort Method`; `Sort Space Type`), and floats of 1e16 or more are dumped as
+  `#e+#`, so identical plans can get different JSON hashes. `extract_runs.py`'s duplicate-plan check can then miss
+  duplicates on JSON runs. The grouping check of `check_json_vs_raw.py` is unaffected: these fields only split
+  plans, never merge them.
 
 ## E1 pipeline (current commands)
 
@@ -254,6 +263,9 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
    - `check_pg16_labels.py`, `check_pinned.py`, `check_pg16_ties.py`, `inspect_e1_inputs.py` and
      `check_downloads.py` only print: their stdout (arguments as in their docstrings) must be identical to
      `results/golden/<script>.stdout`, saved before the refactoring and confirmed deterministic.
+   - `tools/check_json_vs_raw.py` (no arguments, about 12 s): stdout identical to
+     `results/golden/check_json_vs_raw.stdout` (saved before `json_root()` existed; `top_cost` equal on 10,351 of
+     10,351 plans, `plan_shape` grouping equal in 70 of 70 files).
    - DB steps:
      - Rerun `run_plans.py --explain_only` on queries `0 33 55` into `/tmp` and compare `est_cost`
        with `results/pg18_explain_fixed.csv` (0 differences expected).

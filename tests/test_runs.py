@@ -8,7 +8,15 @@ import ijson
 import pytest
 
 from lcm_recheck import runs
-from lcm_recheck.runs import exec_ms, lines, load_run, plan_nodes, plan_shape, top_cost
+from lcm_recheck.runs import (
+    exec_ms,
+    json_root,
+    lines,
+    load_run,
+    plan_nodes,
+    plan_shape,
+    top_cost,
+)
 
 RAW_ANALYZE = [["Seq Scan on title t  (cost=0.00..10.00 rows=1 width=4) (actual time=0.01..0.02 rows=1 loops=1)"],
                ["Planning Time: 0.100 ms"],
@@ -206,3 +214,53 @@ JSON_NODES = [
 @pytest.mark.parametrize("plan", [JSON_PLAN, [JSON_PLAN], JSON_PLAN["Plan"]], ids=["dict", "list", "bare_node"])
 def test_plan_nodes_json(plan: object) -> None:
     assert plan_nodes(plan) == JSON_NODES
+
+
+# ----------------------------------------------------------------------------- json_root: the three JSON shapes
+NODE = {"Node Type": "Seq Scan", "Relation Name": "title", "Total Cost": 42.5, "Plan Rows": 10}
+WRAPPED = {"Plan": NODE, "Planning Time": 0.1, "Execution Time": 3.5}
+SHAPES = {"list": [WRAPPED], "dict": WRAPPED, "bare_node": NODE}
+SHAPE_IDS = list(SHAPES)
+PINNED_HASH = "b929c8604095"          # plan_shape({"Plan": NODE}) before json_root() existed
+
+
+def test_json_root_shapes() -> None:
+    assert json_root([WRAPPED]) is WRAPPED
+    assert json_root(WRAPPED) is WRAPPED
+    assert json_root(NODE) == {"Plan": NODE}
+
+
+@pytest.mark.parametrize("raw", [RAW_VERBOSE, ["Seq Scan on t  (cost=0.00..1.00 rows=1 width=4)"], []],
+                         ids=["rows", "strings", "empty"])
+def test_json_root_raw_is_none(raw: list) -> None:
+    assert json_root(raw) is None
+
+
+@pytest.mark.parametrize("shape", SHAPE_IDS)
+def test_top_cost_json_shapes(shape: str) -> None:
+    assert top_cost(SHAPES[shape]) == 42.5
+
+
+@pytest.mark.parametrize("shape", SHAPE_IDS)
+def test_plan_shape_json_shapes(shape: str) -> None:
+    assert plan_shape(SHAPES[shape]) == PINNED_HASH
+
+
+@pytest.mark.parametrize("shape", ["list", "dict"])
+def test_exec_ms_json_shapes(shape: str) -> None:
+    assert exec_ms(SHAPES[shape]) == 3.5
+
+
+def test_exec_ms_bare_node_raises() -> None:
+    """A bare node is not EXPLAIN ANALYZE output: no Execution Time, KeyError (as for any dict without it)."""
+    with pytest.raises(KeyError):
+        exec_ms(NODE)
+
+
+def test_plan_shape_json_masks_numbers() -> None:
+    """JSON mode masks every number too: costs, rows, times, int vs float."""
+    a = {"Plan": {"Node Type": "Hash Join", "Total Cost": 100, "Plan Rows": 5, "Actual Total Time": 1.25,
+                  "Plans": [{"Node Type": "Seq Scan", "Relation Name": "title", "Actual Rows": 7}]}}
+    b = {"Plan": {"Node Type": "Hash Join", "Total Cost": 2345.67, "Plan Rows": 5.0, "Actual Total Time": 99.5,
+                  "Plans": [{"Node Type": "Seq Scan", "Relation Name": "title", "Actual Rows": 0}]}}
+    assert plan_shape(a) == plan_shape(b)

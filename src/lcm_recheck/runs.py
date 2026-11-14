@@ -3,6 +3,7 @@
 A run file is a JSON object with a 'query_list' (sql, verbose_plan, analyze_plans and timeout per query) and,
 in the authors' files, 'database_stats'. Contents:
   load_run()              read a run file: (iterator over query entries, database_stats)
+  json_root()             the {"Plan": ...} wrapper of a JSON-mode plan in any of its three shapes, None for raw mode
   lines(), exec_ms()      raw-mode rows as strings; execution time of one EXPLAIN ANALYZE output
   top_cost(), plan_shape()  top-node cost and plan-shape hash of a verbose plan (extract_runs.py)
   plan_nodes()            all operator nodes of one EXPLAIN output (bias_data.py)
@@ -95,14 +96,30 @@ def load_run(path: str, max_queries: int | None = None,
 
 
 # ----------------------------------------------------------------------------- plans
+def json_root(plan: Any) -> dict[str, Any] | None:
+    """The EXPLAIN wrapper {"Plan": node, ...} of a JSON-mode plan, or None for a raw-mode plan.
+
+    JSON-mode plans come in three shapes: [{"Plan": ...}] (as EXPLAIN (FORMAT JSON) returns it), {"Plan": ...} (as
+    the authors' run files store it) and a bare node dict {"Node Type": ...}, which is wrapped as {"Plan": node}.
+    Raw-mode plans (a list of 1-element rows or strings, or an empty list) give None."""
+    if isinstance(plan, list) and plan and isinstance(plan[0], dict):
+        plan = plan[0]
+    if not isinstance(plan, dict):
+        return None
+    return plan if "Plan" in plan else {"Plan": plan}
+
+
 def lines(plan: list[Any]) -> list[str]:
     """Raw-mode plans are lists of 1-element rows; return them as a list of strings."""
     return [r[0] if isinstance(r, (list, tuple)) else str(r) for r in plan]
 
 
 def exec_ms(analyze_plan: dict[str, Any] | list[Any]) -> float:
-    if isinstance(analyze_plan, dict):
-        return float(analyze_plan["Execution Time"])
+    """Execution time in ms. JSON mode (any shape of json_root()): the "Execution Time" field, KeyError if it is
+    missing (a bare node or a plan without ANALYZE). Raw mode: the "Execution Time:" line, NaN if there is none."""
+    root = json_root(analyze_plan)
+    if root is not None:
+        return float(root["Execution Time"])
     for line in lines(analyze_plan):
         m = EXEC_RE.search(line)
         if m:
@@ -111,16 +128,21 @@ def exec_ms(analyze_plan: dict[str, Any] | list[Any]) -> float:
 
 
 def top_cost(verbose_plan: dict[str, Any] | list[Any]) -> float:
-    if isinstance(verbose_plan, dict):                       # JSON mode
-        return float(verbose_plan["Plan"]["Total Cost"])
+    """Total cost of the top node. JSON mode: any shape of json_root(); raw mode: the first line, NaN without cost=."""
+    root = json_root(verbose_plan)
+    if root is not None:                                     # JSON mode
+        return float(root["Plan"]["Total Cost"])
     m = COST_RE.search(lines(verbose_plan)[0])                # raw mode: top node is first line
     return float(m.group(2)) if m else float("nan")
 
 
 def plan_shape(verbose_plan: dict[str, Any] | list[Any]) -> str:
-    """Hash of the plan with all numbers removed: equal hashes = same physical plan."""
-    txt = json.dumps(verbose_plan["Plan"], sort_keys=True) if isinstance(verbose_plan, dict) \
-        else "\n".join(lines(verbose_plan))
+    """Hash of the plan with all numbers removed: equal hashes = same physical plan.
+
+    JSON mode (any shape of json_root(), all three give the same hash) hashes the JSON text of the top node, raw mode
+    the plan text; hashes are not comparable across modes."""
+    root = json_root(verbose_plan)
+    txt = json.dumps(root["Plan"], sort_keys=True) if root is not None else "\n".join(lines(verbose_plan))
     return hashlib.md5(NUM_RE.sub("#", txt).encode()).hexdigest()[:12]
 
 
@@ -129,10 +151,10 @@ def clean_rel(rel: str | None) -> str | None:
 
 
 def plan_nodes(plan: dict[str, Any] | list[Any]) -> list[dict[str, Any]]:
-    """All operator nodes of one EXPLAIN output (raw text rows or JSON), with the fields used here."""
-    if isinstance(plan, list) and plan and isinstance(plan[0], dict):
-        plan = plan[0]
-    if isinstance(plan, dict):
+    """All operator nodes of one EXPLAIN output (raw text rows or JSON in any shape of json_root()), with the
+    fields used here."""
+    root = json_root(plan)
+    if root is not None:
         out = []
 
         def walk(n: dict[str, Any]) -> None:
@@ -144,7 +166,7 @@ def plan_nodes(plan: dict[str, Any] | list[Any]) -> list[dict[str, Any]]:
                         "cond": n.get("Index Cond") or n.get("Recheck Cond")})
             for c in n.get("Plans", []):
                 walk(c)
-        walk(plan.get("Plan", plan))
+        walk(root["Plan"])
         return out
     out, cur = [], None
     for line in lines(plan):

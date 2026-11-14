@@ -5,8 +5,8 @@
 #   1. command line: argparse defaults (tools/dump_defaults.py) and --help of every script, against the
 #      scripts and src/ at --base (default HEAD);
 #   2. golden outputs without the database: sigtests paper/versions, bias_models, bias_data, extract_runs on the
-#      full run folders (cmp with the committed CSVs), the stdout of the check_* scripts, make_pg18_predcsv CSVs
-#      (and its stdout against the --base code);
+#      full run folders (cmp with the committed CSVs), the stdout of the check_* scripts and of
+#      tools/check_json_vs_raw.py, make_pg18_predcsv CSVs (and its stdout against the --base code);
 #   3. database checks (read-only, no EXPLAIN ANALYZE): run_plans --explain_only est_cost, load_imdb
 #      --check_only, diagnose_hints. Skipped with a note if the server is not reachable (never started here).
 # Writes only to a new temp folder, deleted at the end unless a check fails or --keep is given.
@@ -163,6 +163,10 @@ if [ "$RUN_NODB" = 1 ]; then
     --pg10 results/pg10_paper.csv --pg16 results/pg16_paper.csv --eval_root $EV
   check_stdout "check_pg16_ties stdout" $G/check_pg16_ties.stdout check_pg16_ties $PY scripts/check_pg16_ties.py \
     --pg10 results/pg10_paper.csv --pg18 results/pg18_explain.csv --status results/pg18_hint_status.csv --eval_root $EV
+  # JSON-mode vs raw-mode parsing in lcm_recheck.runs on the authors' PG10 runs (runs/json read from runs.zip in memory)
+  if need "check_json_vs_raw stdout" lcm-eval/data/runs/raw/imdb/join_order_full lcm-eval/data/runs.zip; then
+    check_stdout "check_json_vs_raw stdout" $G/check_json_vs_raw.stdout check_json_vs_raw $PY tools/check_json_vs_raw.py
+  fi
 
   # make_pg18_predcsv writes into its eval root: use scratch roots with links to the authors' PG10/PG16 folders
   if need "make_pg18_predcsv" scripts/make_pg18_predcsv.py $EV/postgres $EV/postgres_16 \

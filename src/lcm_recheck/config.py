@@ -19,6 +19,8 @@ SQL_FULL_DIR = f"{_WORKLOADS_IMDB}/join_order_full"           # candidate plans,
 SQL_PINNED_DIR = f"{_WORKLOADS_IMDB}/join_order_full_pg_10_hinted"   # PG10's physical plans, pinned by hints
 RUNS_PG10_DIR = f"{_RUNS_IMDB}/join_order_full"               # authors' PG10 run files
 RUNS_PG16_DIR = f"{_RUNS_IMDB}/join_order_full_v16"           # authors' PG16 run files
+RUNS_JSON_PG10_DIR = f"{DATA_ROOT}/runs/json/imdb/join_order_full"   # the same PG10 workload, JSON EXPLAIN mode
+RUNS_ZIP = f"{DATA_ROOT}/runs.zip"                            # OSF archive of runs/ (runs/json is not extracted)
 IMDB_CSV_DIR = f"{DATA_ROOT}/datasets/imdb"                   # the 15 <table>.csv files
 IMDB_DATASET_DIR = "lcm-eval/src/cross_db_benchmark/datasets/imdb"   # schema.json, table_lengths.json, schema_sql/
 
