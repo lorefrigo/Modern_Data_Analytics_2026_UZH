@@ -60,8 +60,14 @@ All commands run from the repository root.
 |---|---|
 | `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `default_retrain_root()` |
 | `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
+| `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised |
+| `src/lcm_recheck/report.py` | `section()`, `Tee` and `tee_output()`: the `--out` file with its header (date, command, versions + a script-specific suffix) and the script's closing line |
+| `src/lcm_recheck/runs.py` | Run-file parsing: `lines()`, `exec_ms()` (the rest follows in step 4) |
+| `src/lcm_recheck/stats.py` | Statistics helpers: `holm()` (the rest follows in step 5) |
 | `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
 | `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
+| `tests/test_hints.py`, `tests/test_report.py`, `tests/test_runs.py`, `tests/test_stats.py` | Unit tests of the package helpers (no data, no database) |
+| `tests/test_scripts.py` | Every script only defines things on import (nothing runs or prints) and has a `main()` |
 | `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
 | `tools/dump_defaults.py` | Prints the argparse defaults of a script without running it (used by `verify_golden.sh`) |
 | `scripts/osf_fetch.py` | List or selectively download OSF files (shows sizes first) |
@@ -76,8 +82,8 @@ All commands run from the repository root.
 | `scripts/check_pinned.py` | Whether Sc. PG16 was built from the pinned SQL (maps pinned lines to PG10 plans via `Leading(...)`); prints only |
 | `scripts/inspect_e1_inputs.py` | E1 input check: which SQL each authors' run used, and whether plan positions line up across folders; no arguments, prints only |
 | `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` |
-| `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; imports from `extract_runs.py` and `sigtests.py`; uses `ijson` |
-| `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions; imports from `sigtests.py` |
+| `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; uses `ijson` |
+| `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions |
 | `results/pg10_paper.csv` | `extract_runs.py` output for the authors' PG10 runs (E1 labels) |
 | `results/pg16_paper.csv` | `extract_runs.py` output for the authors' PG16 runs (`--version pg16_paper`); input to `check_pg16_labels.py` |
 | `results/pg18_explain.csv`, `results/pg18_explain_fixed.csv` | PG18 costs on the original and the fixed pinned SQL |
@@ -94,14 +100,9 @@ All commands run from the repository root.
 
 Known problems to fix:
 
-- Helper code is duplicated: `leading()` (parses the `Leading(...)` hint) in `check_pinned.py`,
-  `inspect_e1_inputs.py`, `check_pg16_ties.py` and `make_pg18_predcsv.py`; the `--out` header and `Tee`
-  set-up in `sigtests.py`, `bias_data.py` and `bias_models.py`.
-- `bias_data.py` and `bias_models.py` depend on `sigtests.py` (and `bias_data.py` also on
-  `extract_runs.py`) being importable from the same folder.
-- `check_pg16_labels.py`, `check_pinned.py` and `inspect_e1_inputs.py` run at import time and have no
-  `--out`.
-- `make_pg18_predcsv.py` runs at import time and is hard-wired to PG18.
+- `check_pg16_labels.py`, `check_pinned.py`, `check_pg16_ties.py`, `inspect_e1_inputs.py` and
+  `check_downloads.py` have no `--out`.
+- `make_pg18_predcsv.py` is hard-wired to PG18.
 - The SQL fix exists only as a shell loop.
 - Generated prediction folders (`postgres_18`, `postgres_18_asis`) are written **inside**
   `lcm-eval/data/evaluation/`, which is gitignored and belongs to the authors.

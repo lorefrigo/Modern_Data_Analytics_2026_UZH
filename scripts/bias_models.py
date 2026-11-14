@@ -23,14 +23,14 @@ Usage (from the MDA folder):
   python scripts/bias_models.py --eval_root lcm-eval/data/evaluation --out results/bias_models.txt
       [--retrain_root lcm-eval/data/retraining_evaluation] [--tests 2 3a]
 """
-import argparse, datetime, os, platform, sys
+import argparse, os
 import numpy as np, pandas as pd
-import scipy
 from scipy.stats import binomtest
 
 from lcm_recheck.config import (LCMS, FINE_TUNED_LCMS, REF, PG16, SEEDS, SCAN_COLUMNS, LABEL_SOURCE, B, BASE_SEED,
                                 SCAN_FOLDER, default_retrain_root)
-from sigtests import holm, section, Tee
+from lcm_recheck.report import section, tee_output
+from lcm_recheck.stats import holm
 
 RNG = np.random.default_rng(BASE_SEED)
 
@@ -359,7 +359,7 @@ def test3a(a):
 
 
 # ----------------------------------------------------------------------------- main
-if __name__ == "__main__":
+def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--eval_root", required=True)
     ap.add_argument("--retrain_root", help="fine-tuned predictions (default: retraining_evaluation next to eval_root)")
@@ -368,22 +368,14 @@ if __name__ == "__main__":
     a = ap.parse_args()
     a.eval_root = os.path.expanduser(a.eval_root)
     a.retrain_root = os.path.expanduser(a.retrain_root or default_retrain_root(a.eval_root))
-    out_file = None
-    if a.out:
-        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-        out_file = open(a.out, "w", encoding="utf-8")
-        sys.stdout = Tee(sys.__stdout__, out_file)
-        print(f"# {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
-        print(f"# command: python {' '.join(sys.argv)}")
-        print(f"# python {platform.python_version()}, numpy {np.__version__}, pandas {pd.__version__}, "
-              f"scipy {scipy.__version__}; bootstrap seed {BASE_SEED}, {B} resamples\n")
-    try:
+    with tee_output(a.out, header_extra=f"; bootstrap seed {BASE_SEED}, {B} resamples",
+                    closing=f"Output written to {a.out}"):
         if "2" in a.tests:
             test2(a)
         if "3a" in a.tests:
             test3a(a)
-    finally:
-        if out_file:
-            sys.stdout = sys.__stdout__
-            out_file.close()
-            print(f"Output written to {a.out}")
+
+
+if __name__ == "__main__":
+    main()
+

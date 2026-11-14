@@ -9,14 +9,10 @@ Usage:
 import argparse, glob, hashlib, json, os, re
 import pandas as pd
 
+from lcm_recheck.runs import exec_ms, lines
+
 COST_RE = re.compile(r"cost=([\d.]+)\.\.([\d.]+)")
-EXEC_RE = re.compile(r"execution time:\s*([\d.]+)\s*ms", re.I)
 NUM_RE = re.compile(r"[\d.]+")
-
-
-def lines(plan):
-    """Raw-mode plans are lists of 1-element rows; return them as a list of strings."""
-    return [r[0] if isinstance(r, (list, tuple)) else str(r) for r in plan]
 
 
 def top_cost(verbose_plan):
@@ -24,16 +20,6 @@ def top_cost(verbose_plan):
         return float(verbose_plan["Plan"]["Total Cost"])
     m = COST_RE.search(lines(verbose_plan)[0])                # raw mode: top node is first line
     return float(m.group(2)) if m else float("nan")
-
-
-def exec_ms(analyze_plan):
-    if isinstance(analyze_plan, dict):
-        return float(analyze_plan["Execution Time"])
-    for l in lines(analyze_plan):
-        m = EXEC_RE.search(l)
-        if m:
-            return float(m.group(1))
-    return float("nan")
 
 
 def plan_shape(verbose_plan):

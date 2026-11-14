@@ -5,6 +5,7 @@ Usage (from MDA/):  uv run python scripts/inspect_e1_inputs.py
 import glob, json, os, re
 
 from lcm_recheck.config import JOB_LIGHT_IDS as IDS, SQL_FULL_DIR, SQL_PINNED_DIR, RUNS_PG10_DIR, RUNS_PG16_DIR
+from lcm_recheck.hints import leading
 
 SQL_DIRS = {"full": SQL_FULL_DIR, "pinned": SQL_PINNED_DIR}
 RUN_DIRS = {"pg10": RUNS_PG10_DIR, "pg16": RUNS_PG16_DIR}
@@ -12,19 +13,6 @@ RUN_DIRS = {"pg10": RUNS_PG10_DIR, "pg16": RUNS_PG16_DIR}
 
 def norm(s):
     return " ".join(s.split())
-
-
-def leading(s):
-    """Content of the Leading(...) hint, with nested parentheses; None if absent."""
-    i = s.find("Leading(")
-    if i < 0:
-        return None
-    depth, j = 0, i + len("Leading")
-    for k in range(j, len(s)):
-        depth += {"(": 1, ")": -1}.get(s[k], 0)
-        if depth == 0:
-            return norm(s[j + 1:k])
-    return None
 
 
 def read_sql(d, q):
@@ -43,50 +31,55 @@ def read_run(d, q):
         return json.load(f)["query_list"]
 
 
-sql = {k: {q: read_sql(d, q) for q in IDS} for k, d in SQL_DIRS.items()}
-runs = {k: {q: read_run(d, q) for q in IDS} for k, d in RUN_DIRS.items()}
+def main():
+    sql = {k: {q: read_sql(d, q) for q in IDS} for k, d in SQL_DIRS.items()}
+    runs = {k: {q: read_run(d, q) for q in IDS} for k, d in RUN_DIRS.items()}
 
-print("== Files for the 58 paper queries")
-for k, d in {**SQL_DIRS, **RUN_DIRS}.items():
-    src = sql.get(k) or runs.get(k)
-    have = [q for q in IDS if src[q] is not None]
-    n = sum(len(src[q]) for q in have)
-    extra = len(glob.glob(os.path.join(d, "job_light_*"))) - len(have)
-    print(f"  {k:<7} {len(have):2d}/58 queries, {n:6d} plans/lines, {extra} other files   ({d})")
-    if len(have) < 58:
-        print(f"          missing: {[q for q in IDS if src[q] is None]}")
+    print("== Files for the 58 paper queries")
+    for k, d in {**SQL_DIRS, **RUN_DIRS}.items():
+        src = sql.get(k) or runs.get(k)
+        have = [q for q in IDS if src[q] is not None]
+        n = sum(len(src[q]) for q in have)
+        extra = len(glob.glob(os.path.join(d, "job_light_*"))) - len(have)
+        print(f"  {k:<7} {len(have):2d}/58 queries, {n:6d} plans/lines, {extra} other files   ({d})")
+        if len(have) < 58:
+            print(f"          missing: {[q for q in IDS if src[q] is None]}")
 
-print("\n== Example hints (job_light_3, first line)")
-for k in SQL_DIRS:
-    if sql[k][3]:
-        s = sql[k][3][0]
-        print(f"  {k}: {s[:s.find('*/') + 2] if '*/' in s else s[:300]}")
+    print("\n== Example hints (job_light_3, first line)")
+    for k in SQL_DIRS:
+        if sql[k][3]:
+            s = sql[k][3][0]
+            print(f"  {k}: {s[:s.find('*/') + 2] if '*/' in s else s[:300]}")
 
-print("\n== Pinned line i has the same Leading(...) as full line i")
-same = tot = lencheck = 0
-for q in IDS:
-    a, b = sql["full"][q], sql["pinned"][q]
-    if a and b:
-        lencheck += len(a) == len(b)
-        for x, y in zip(a, b):
-            tot += 1; same += leading(x) == leading(y)
-print(f"  {same}/{tot} lines equal; {lencheck} queries have equal line counts")
+    print("\n== Pinned line i has the same Leading(...) as full line i")
+    same = tot = lencheck = 0
+    for q in IDS:
+        a, b = sql["full"][q], sql["pinned"][q]
+        if a and b:
+            lencheck += len(a) == len(b)
+            for x, y in zip(a, b):
+                tot += 1; same += leading(x) == leading(y)
+    print(f"  {same}/{tot} lines equal; {lencheck} queries have equal line counts")
 
-print("\n== Which SQL did each run use, and are run entries in SQL line order?")
-for rk in RUN_DIRS:
-    for sk in SQL_DIRS:
-        found = in_order = tot = 0
-        for q in IDS:
-            r, s = runs[rk][q], sql[sk][q]
-            if not r or not s:
-                continue
-            pos = {x: i for i, x in enumerate(s)}
-            for i, e in enumerate(r):
-                tot += 1
-                j = pos.get(norm(e["sql"]))
-                found += j is not None
-                in_order += j == i
-        print(f"  {rk} runs vs {sk:<6} SQL: {found}/{tot} run SQLs found, {in_order} at the same position")
-    n_to = sum(sum(bool(e.get("timeout")) for e in runs[rk][q]) for q in IDS if runs[rk][q])
-    hints = {bool(e.get("hint")) for q in IDS if runs[rk][q] for e in runs[rk][q]}
-    print(f"  {rk}: {n_to} timed-out entries; separate 'hint' field used: {hints}")
+    print("\n== Which SQL did each run use, and are run entries in SQL line order?")
+    for rk in RUN_DIRS:
+        for sk in SQL_DIRS:
+            found = in_order = tot = 0
+            for q in IDS:
+                r, s = runs[rk][q], sql[sk][q]
+                if not r or not s:
+                    continue
+                pos = {x: i for i, x in enumerate(s)}
+                for i, e in enumerate(r):
+                    tot += 1
+                    j = pos.get(norm(e["sql"]))
+                    found += j is not None
+                    in_order += j == i
+            print(f"  {rk} runs vs {sk:<6} SQL: {found}/{tot} run SQLs found, {in_order} at the same position")
+        n_to = sum(sum(bool(e.get("timeout")) for e in runs[rk][q]) for q in IDS if runs[rk][q])
+        hints = {bool(e.get("hint")) for q in IDS if runs[rk][q] for e in runs[rk][q]}
+        print(f"  {rk}: {n_to} timed-out entries; separate 'hint' field used: {hints}")
+
+
+if __name__ == "__main__":
+    main()

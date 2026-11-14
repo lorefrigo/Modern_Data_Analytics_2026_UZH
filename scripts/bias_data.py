@@ -24,15 +24,14 @@ Usage (from the MDA folder):
 
 Install ijson (pip install ijson) to read large training files without loading them into memory.
 """
-import argparse, datetime, json, os, platform, re, sys
+import argparse, json, os, re
 from collections import Counter
 import numpy as np, pandas as pd
-import scipy
 from scipy.stats import beta, fisher_exact, ks_2samp, norm
 
 from lcm_recheck.config import SCAN_COLUMNS
-from extract_runs import lines, exec_ms
-from sigtests import section, Tee
+from lcm_recheck.report import section, tee_output
+from lcm_recheck.runs import exec_ms, lines
 
 try:
     import ijson
@@ -516,7 +515,7 @@ def leakage(ref):
 
 
 # ----------------------------------------------------------------------------- main
-def main(a):
+def run(a):
     section("TEST 1: IS THE TRAINING DATA BIASED?")
     if ijson is None:
         print("note: ijson is not installed, so every file is loaded into memory at once (pip install ijson)")
@@ -551,7 +550,7 @@ def main(a):
         print("\n1c and the leakage check skipped: need --ref_index_runs and --ref_seq_runs")
 
 
-if __name__ == "__main__":
+def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--imdb_train_runs", nargs="+", help="training run files on IMDB (used for 1a-1d)")
     ap.add_argument("--train_runs", nargs="+", help="training run files of other databases (1a, 1b, 1d only)")
@@ -561,19 +560,9 @@ if __name__ == "__main__":
     ap.add_argument("--max_queries", type=int, help="read only the first N queries of each file (quick check)")
     ap.add_argument("--out", help="also write the output to this file (overwritten)")
     a = ap.parse_args()
-    out_file = None
-    if a.out:
-        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-        out_file = open(a.out, "w", encoding="utf-8")
-        sys.stdout = Tee(sys.__stdout__, out_file)
-        print(f"# {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
-        print(f"# command: python {' '.join(sys.argv)}")
-        print(f"# python {platform.python_version()}, numpy {np.__version__}, pandas {pd.__version__}, "
-              f"scipy {scipy.__version__}, ijson {'yes' if ijson else 'no'}\n")
-    try:
-        main(a)
-    finally:
-        if out_file:
-            sys.stdout = sys.__stdout__
-            out_file.close()
-            print(f"Output written to {a.out}")
+    with tee_output(a.out, header_extra=f", ijson {'yes' if ijson else 'no'}", closing=f"Output written to {a.out}"):
+        run(a)
+
+
+if __name__ == "__main__":
+    main()

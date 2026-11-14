@@ -19,14 +19,15 @@ Usage:
 --out writes everything that is printed to FILE as well (still shown in the terminal). An existing
 file is always overwritten. The file starts with the date, the exact command and the package versions.
 """
-import argparse, datetime, glob, os, platform, re, sys
+import argparse, glob, os, re
 import numpy as np, pandas as pd
-import scipy
 from scipy.stats import wilcoxon, binomtest
 
 from lcm_recheck.config import (LCMS, ACT_CARD_LCMS, FINE_TUNED_LCMS, INDEX_LCMS, REF, PG16, PG_VERSIONS,
                                 LABEL_SOURCE, B, BASE_SEED, SEEDS, SCAN_COLUMNS, PHYSICAL, PHYSICAL_INDEX,
                                 JOIN_ORDER_FOLDER, SCAN_FOLDER, default_retrain_root)
+from lcm_recheck.report import section, tee_output
+from lcm_recheck.stats import holm
 
 RNG = np.random.default_rng(BASE_SEED)
 
@@ -34,13 +35,6 @@ SUMMARY = []   # every LCM-vs-PG10 verdict, collected for the final summary
 
 
 # ----------------------------------------------------------------------------- statistics helpers
-def holm(p):
-    p = np.asarray(p, float); order = np.argsort(p); adj = np.empty_like(p); run = 0.0
-    for rank, i in enumerate(order):
-        run = max(run, min(1.0, (len(p) - rank) * p[i])); adj[i] = run
-    return adj
-
-
 def boot(per_query, stat, b=B):
     """Resample units with replacement; per_query is a list of per-unit objects (used by Task 1)."""
     n = len(per_query)
@@ -132,10 +126,6 @@ def balanced_accuracy(y_true, y_pred):
     """Same as sklearn.metrics.balanced_accuracy_score: mean recall over the classes present in y_true."""
     y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
     return float(np.mean([np.mean(y_pred[y_true == c] == c) for c in np.unique(y_true)]))
-
-
-def section(title):
-    print("\n" + "=" * 100 + f"\n{title}\n" + "=" * 100)
 
 
 # ----------------------------------------------------------------------------- loading
@@ -521,21 +511,7 @@ def versions(a):
     print(f"  queries where each version picks its optimum: {na} {(sa.r == sa.opt).mean():.0%}, {nb} {(sb.r == sb.opt).mean():.0%}")
 
 
-class Tee:
-    """Sends everything written to stdout to the terminal and to a file."""
-    def __init__(self, *streams):
-        self.streams = streams
-
-    def write(self, text):
-        for st in self.streams:
-            st.write(text)
-
-    def flush(self):
-        for st in self.streams:
-            st.flush()
-
-
-if __name__ == "__main__":
+def main():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--out", help="also write the output to this file (folders are created; an existing file is overwritten)")
     ap = argparse.ArgumentParser(); sp = ap.add_subparsers(dest="mode", required=True)
@@ -549,19 +525,10 @@ if __name__ == "__main__":
         a.eval_root = os.path.expanduser(a.eval_root)
         a.retrain_root = os.path.expanduser(a.retrain_root or default_retrain_root(a.eval_root))
 
-    out_file = None
-    if a.out:
-        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-        out_file = open(a.out, "w", encoding="utf-8")        # "w": an existing file is overwritten
-        sys.stdout = Tee(sys.__stdout__, out_file)
-        print(f"# {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
-        print(f"# command: python {' '.join(sys.argv)}")
-        print(f"# python {platform.python_version()}, numpy {np.__version__}, pandas {pd.__version__}, "
-              f"scipy {scipy.__version__}; bootstrap seed {BASE_SEED}\n")
-    try:
+    with tee_output(a.out, header_extra=f"; bootstrap seed {BASE_SEED}",
+                    closing=f"Output written to {a.out} (any previous file with this name was overwritten)"):
         paper(a) if a.mode == "paper" else versions(a)
-    finally:
-        if out_file:
-            sys.stdout = sys.__stdout__
-            out_file.close()
-            print(f"Output written to {a.out} (any previous file with this name was overwritten)")
+
+
+if __name__ == "__main__":
+    main()
