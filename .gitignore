@@ -5,6 +5,7 @@ lcm-eval/
 results/runs_*/
 results/sql_*/
 results/golden/
+results/check/
 # Python / uv
 .venv/
 __pycache__/
