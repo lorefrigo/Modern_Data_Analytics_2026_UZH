@@ -1,7 +1,8 @@
 """sigtests.py paper, Task 1: join ordering on JOB-light (Fig. 1, Fig. 4).
 
 H1 selected runtime (LCMs and PG versions vs Sc. PG10), H2 median Q-error, per-seed totals,
-H1b LCMs trained with actual cardinalities. Bootstrap over queries, drawn from tasks.common.RNG.
+H1b LCMs trained with actual cardinalities. Bootstrap over queries; each family resamples with its own
+index matrix (stats.resample_idx), shared by all its models. Family ids: config.FAMILY_IDS.
 
 Usage:
   from lcm_recheck.tasks.join import task_join
@@ -17,8 +18,8 @@ import pandas as pd
 
 from lcm_recheck.config import ACT_CARD_LCMS, JOIN_ORDER_FOLDER, LCMS, PG_VERSIONS, REF
 from lcm_recheck.report import section
-from lcm_recheck.stats import boot, ci_p, holm
-from lcm_recheck.tasks.common import RNG, compare, finish_family, record, show
+from lcm_recheck.stats import boot, ci_p, holm, resample_idx
+from lcm_recheck.tasks.common import compare, finish_family, record, show
 
 
 def load_preds(eval_root: str, model: str) -> pd.DataFrame | None:
@@ -82,7 +83,7 @@ def task_join(a: argparse.Namespace) -> None:
         for m in members:
             qs = [q for q in queries if q in sel[m].index]
             rows.append({"model": m, **compare(sel[m].loc[qs, "r"].values, sel[REF].loc[qs, "r"].values,
-                                               len(members), "runtime", legacy=True)})
+                                               len(members), "runtime", family=f"sigtests/join/H1/{fam}")})
         h1 = finish_family(rows)
         show(f"H1 [{fam}] delta = sum_q (r_model - r_PG10) in s; bootstrap over queries", h1)
         if fam == "LCM vs PG10":
@@ -104,7 +105,8 @@ def task_join(a: argparse.Namespace) -> None:
     for m in [x for x in LCMS if x in avg]:
         mq = {q: qerr(g).values for q, g in avg[m][avg[m]["query"].isin(queries)].groupby("query")}
         pairs = [(mq[q], ref_q[q]) for q in queries]
-        obs, lo, hi, p = ci_p(boot(pairs, stat, rng=RNG, b=2000), stat(pairs))
+        obs, lo, hi, p = ci_p(boot(pairs, stat, idx=resample_idx("sigtests/join/H2/LCM vs PG10", len(pairs))),
+                              stat(pairs))
         rows.append({"model": m, "median_qerr_diff": obs, "ci_lo": lo, "ci_hi": hi, "boot_p": p})
     h2 = pd.DataFrame(rows)
     h2["boot_p_holm"] = holm(h2.boot_p)
@@ -125,7 +127,8 @@ def task_join(a: argparse.Namespace) -> None:
         for m in members:
             qs = [q for q in queries if q in sel[m].index]
             rows.append({"model": m, **compare(sel[m].loc[qs, "r"].values, sel[REF].loc[qs, "r"].values,
-                                               len(members), "runtime")})
+                                               len(members), "runtime",
+                                               family="sigtests/join/H1b/LCM (act. card.) vs PG10")})
         h1b = finish_family(rows)
         show("H1b [LCM with actual cardinalities vs PG10 with estimated ones] delta = sum_q (r_model - r_PG10) in s",
              h1b, note="Fig. 4 lighter bars. The PG10/PG16 values with actual cardinalities in Fig. 5 are typed "

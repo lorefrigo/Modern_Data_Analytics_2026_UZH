@@ -54,7 +54,7 @@ def main():
         a.eval_root = os.path.expanduser(a.eval_root)
         a.retrain_root = os.path.expanduser(a.retrain_root or default_retrain_root(a.eval_root))
 
-    with tee_output(a.out, header_extra=f"; bootstrap seed {BASE_SEED}",
+    with tee_output(a.out, header_extra=f"; bootstrap base seed {BASE_SEED}, one generator per test family",
                     closing=f"Output written to {a.out} (any previous file with this name was overwritten)"):
         paper(a) if a.mode == "paper" else versions(a)
 

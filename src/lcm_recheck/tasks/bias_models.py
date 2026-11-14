@@ -4,8 +4,8 @@ Test 2: 21 columns of Table 3, all LCMs, PG10 and PG16 (2a selectivity slope, 2b
 scans, 2c false index picks vs PG10). Test 3a: 6 IMDB columns of Fig. 14, 5 fine-tuned LCMs, exact McNemar
 before vs after. See scripts/bias_models.py for the full description.
 
-RNG is this module's own bootstrap generator (separate from sigtests' tasks.common.RNG). Test 2 draws one
-index matrix from it and shares it across 2a, 2b, 2c and all models.
+Test 2 bootstraps over columns with the one resample-index matrix of family "bias_models/test2"
+(stats.resample_idx), shared across 2a, 2b, 2c and all models. Test 3a has no bootstrap.
 
 Usage:
   from lcm_recheck.tasks.bias_models import test2, test3a
@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 
 from lcm_recheck.config import (
-    BASE_SEED,
     FINE_TUNED_LCMS,
     LABEL_SOURCE,
     LCMS,
@@ -30,9 +29,7 @@ from lcm_recheck.config import (
     B,
 )
 from lcm_recheck.report import section
-from lcm_recheck.stats import boot_p, ci, holm, mcnemar
-
-RNG = np.random.default_rng(BASE_SEED)
+from lcm_recheck.stats import boot_p, ci, holm, mcnemar, resample_idx
 
 
 # ----------------------------------------------------------------------------- loading
@@ -151,7 +148,7 @@ def test2(a: argparse.Namespace) -> None:
     # column-level sums used by every bootstrap below (resampling unit = column)
     col_idx = {c: i for i, c in enumerate(cols)}
     C = len(cols)
-    idx = RNG.integers(0, C, (B, C))
+    idx = resample_idx("bias_models/test2", C)
 
     # ---- 2a: within-column slope of P(pick index) on s
     def sums(m: str, field: str) -> tuple[np.ndarray, np.ndarray]:

@@ -1,11 +1,13 @@
 """State and helpers shared by the sigtests.py tasks (join, access, physical, versions).
 
-RNG is the single bootstrap generator of sigtests.py: every task draws from this one object, in the
-order the tasks run. SUMMARY collects every LCM-vs-PG10 verdict for summary(); only record() appends to it.
+No random generator lives here: compare() and compare_pick() bootstrap with the resample-index matrix of
+the test family they are given (stats.resample_idx), so all models of a family share the same resamples.
+SUMMARY collects every LCM-vs-PG10 verdict for summary(); only record() appends to it.
 
 Usage:
   from lcm_recheck.tasks.common import compare, finish_family, record, show
-  df = finish_family([{"model": m, **compare(x, ref, k, "runtime")} for m, x in ...])
+  fam = "sigtests/join/H1/LCM vs PG10"
+  df = finish_family([{"model": m, **compare(x, ref, k, "runtime", family=fam)} for m, x in ...])
   show("title", df); record("1 join order", "LCM vs PG10", "selected runtime", df)
 """
 import os
@@ -14,18 +16,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from lcm_recheck.config import BASE_SEED, LABEL_SOURCE, REF, SEEDS
+from lcm_recheck.config import LABEL_SOURCE, REF, SEEDS
 from lcm_recheck.report import section
-from lcm_recheck.stats import boot, boot_fast, ci_p, holm, mcnemar, wilcoxon_p
-
-RNG = np.random.default_rng(BASE_SEED)
+from lcm_recheck.stats import boot_fast, ci_p, holm, mcnemar, resample_idx, wilcoxon_p
 
 SUMMARY: list[dict[str, Any]] = []   # every LCM-vs-PG10 verdict, collected for the final summary
 
 
 # ----------------------------------------------------------------------------- paired comparisons
-def compare(x: Any, ref: Any, k: int, kind: str, legacy: bool = False) -> dict[str, Any]:
-    """Paired comparison of one model with PG10 over units (queries or columns).
+def compare(x: Any, ref: Any, k: int, kind: str, *, family: str) -> dict[str, Any]:
+    """Paired comparison of one model with PG10 over units (queries or columns), bootstrapped with the
+    resample-index matrix of `family` (a config.FAMILY_IDS entry).
 
     kind="runtime": statistic = sum of differences (lower is better), Wilcoxon on log ratios.
     kind="score":   statistic = mean of differences (higher is better), Wilcoxon on differences.
@@ -33,7 +34,7 @@ def compare(x: Any, ref: Any, k: int, kind: str, legacy: bool = False) -> dict[s
     x, ref = np.asarray(x, float), np.asarray(ref, float)
     d = x - ref
     stat = np.sum if kind == "runtime" else np.mean
-    samples = boot(list(d), stat, rng=RNG) if legacy else boot_fast(d, stat, rng=RNG)
+    samples = boot_fast(d, stat, idx=resample_idx(family, len(d)))
     obs, lo, hi, _ = ci_p(samples, stat(d))
     _, flo, fhi, _ = ci_p(samples, stat(d), alpha=0.05 / k)
     w = np.log(x / ref) if kind == "runtime" and (x > 0).all() and (ref > 0).all() else d
@@ -49,11 +50,12 @@ def compare(x: Any, ref: Any, k: int, kind: str, legacy: bool = False) -> dict[s
             "largest_unit_share": np.abs(d).max() / max(np.abs(d).sum(), 1e-12), "verdict": verdict}
 
 
-def compare_pick(x: Any, ref: Any) -> dict[str, Any]:
-    """Paired comparison of pick rates (picked the optimal plan: yes/no per query); exact McNemar test."""
+def compare_pick(x: Any, ref: Any, *, family: str) -> dict[str, Any]:
+    """Paired comparison of pick rates (picked the optimal plan: yes/no per query); exact McNemar test.
+    The interval is bootstrapped with the resample-index matrix of `family`; it carries no verdict."""
     x, ref = np.asarray(x, bool), np.asarray(ref, bool)
     d = x.astype(float) - ref.astype(float)
-    obs, lo, hi, _ = ci_p(boot_fast(d, np.mean, rng=RNG), d.mean())
+    obs, lo, hi, _ = ci_p(boot_fast(d, np.mean, idx=resample_idx(family, len(d))), d.mean())
     only_ref, only_x = int((ref & ~x).sum()), int((x & ~ref).sum())
     p = mcnemar(only_x, only_ref)
     return {"n": len(d), "pick_lcm": x.mean(), "pick_pg10": ref.mean(), "delta": obs, "ci95_lo": lo,

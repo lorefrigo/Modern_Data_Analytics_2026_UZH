@@ -1,20 +1,24 @@
 """Statistics helpers shared by the significance tests (sigtests.py) and the bias tests (bias_*.py).
 
-No random generator lives here: the bootstrap helpers draw from the generator they are given.
+No module-level random generator (option B of the statistical protocol). Each test family has its own
+generator, family_rng(family_id), seeded with [BASE_SEED, crc32(family_id)]; resample_idx() draws the family's
+one (B, n) resample-index matrix from it. The matrix depends only on (family_id, n), so every model of a family
+resamples the same units, and no result depends on which tests ran before.
 
 Usage:
-  from lcm_recheck.stats import holm, boot_fast, ci_p
-  holm([0.01, 0.04, 0.03])                     # Holm-adjusted p-values, in input order
-  samples = boot_fast(d, np.mean, rng=rng)     # rng: a numpy Generator owned by the caller
+  from lcm_recheck.stats import holm, boot_fast, ci_p, resample_idx
+  holm([0.01, 0.04, 0.03])                                       # Holm-adjusted p-values, in input order
+  samples = boot_fast(d, np.mean, idx=resample_idx("sigtests/access/T2a/LCM vs PG10", len(d)))
   observed, lo, hi, p = ci_p(samples, d.mean())
 """
+import zlib
 from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
 from scipy.stats import beta, binomtest, norm, wilcoxon
 
-from lcm_recheck.config import B
+from lcm_recheck.config import BASE_SEED, FAMILY_IDS, B
 
 
 def holm(p: Sequence[float] | np.ndarray) -> np.ndarray:
@@ -30,20 +34,38 @@ def holm(p: Sequence[float] | np.ndarray) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------------- bootstrap
-def boot(per_query: Sequence[Any], stat: Callable[[list[Any]], float], *, rng: np.random.Generator,
-         b: int = B) -> np.ndarray:
-    """Resample units with replacement; per_query is a list of per-unit objects (used by Task 1).
+def family_rng(family_id: str) -> np.random.Generator:
+    """A fresh generator for one test family, seeded with [BASE_SEED, crc32(family_id)].
 
-    Draws b times rng.integers(0, n, n), one resample after the other."""
-    n = len(per_query)
-    return np.array([stat([per_query[j] for j in rng.integers(0, n, n)]) for _ in range(b)])
+    crc32, not hash(): hash() of a str is randomised per process. Only ids in config.FAMILY_IDS are accepted."""
+    if family_id not in FAMILY_IDS:
+        raise ValueError(f"unknown test family {family_id!r}; register it in config.FAMILY_IDS")
+    return np.random.default_rng([BASE_SEED, zlib.crc32(family_id.encode())])
+
+
+def resample_idx(family_id: str, n: int, b: int = B) -> np.ndarray:
+    """The family's (b, n) resample-index matrix: one draw family_rng(family_id).integers(0, n, (b, n)).
+
+    Row r is resample r (n units drawn with replacement). Same (family_id, n, b) -> identical matrix."""
+    return family_rng(family_id).integers(0, n, (b, n))
+
+
+def _check_idx(idx: np.ndarray, n: int) -> None:
+    if idx.ndim != 2 or idx.shape[1] != n:
+        raise ValueError(f"resample-index matrix of shape {idx.shape} does not fit {n} units")
+
+
+def boot(per_unit: Sequence[Any], stat: Callable[[list[Any]], float], *, idx: np.ndarray) -> np.ndarray:
+    """Bootstrap of per-unit objects (lists of arrays, tuples): stat of each resample, one per row of idx."""
+    _check_idx(idx, len(per_unit))
+    return np.array([stat([per_unit[j] for j in row]) for row in idx])
 
 
 def boot_fast(values: Sequence[float] | np.ndarray, stat: Callable[..., np.ndarray], *,
-              rng: np.random.Generator, b: int = B) -> np.ndarray:
-    """Vectorised version for numeric arrays (used by Tasks 2 and 3); one draw rng.integers(0, n, (b, n))."""
+              idx: np.ndarray) -> np.ndarray:
+    """Vectorised bootstrap of numeric per-unit values: stat(values[idx], axis=1)."""
     values = np.asarray(values, float)
-    idx = rng.integers(0, len(values), (b, len(values)))
+    _check_idx(idx, len(values))
     return stat(values[idx], axis=1)
 
 

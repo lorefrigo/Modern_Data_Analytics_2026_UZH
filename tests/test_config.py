@@ -39,3 +39,34 @@ def test_default_retrain_root() -> None:
     expected = "lcm-eval/data/retraining_evaluation"
     assert c.default_retrain_root("lcm-eval/data/evaluation") == expected
     assert c.default_retrain_root("lcm-eval/data/evaluation/") == expected
+
+
+def test_family_ids_pinned() -> None:
+    """The family ids seed the bootstrap generators (statistical protocol): renaming, adding or removing one
+    changes bootstrap numbers and needs the same treatment as refactoring step 6. Update this list only then."""
+    fig11 = [f"sigtests/physical/Fig. 11: {cmp} vs PG10/{metric}/{ds}"
+             for cmp in ("LCM", "PG16") for metric in ("selected runtime", "pick rate")
+             for ds in ("IMDB", "TPC-H", "Baseball")]
+    assert fig11[:3] == ["sigtests/physical/Fig. 11: LCM vs PG10/selected runtime/IMDB",
+                         "sigtests/physical/Fig. 11: LCM vs PG10/selected runtime/TPC-H",
+                         "sigtests/physical/Fig. 11: LCM vs PG10/selected runtime/Baseball"]
+    assert c.FAMILY_IDS == (
+        "sigtests/join/H1/LCM vs PG10",
+        "sigtests/join/H1/PG version vs PG10",
+        "sigtests/join/H2/LCM vs PG10",
+        "sigtests/join/H1b/LCM (act. card.) vs PG10",
+        "sigtests/access/T2a/LCM vs PG10",
+        "sigtests/access/T2a/PG16 vs PG10",
+        "sigtests/access/T2b/LCM vs PG10",
+        "sigtests/access/T2b/PG16 vs PG10",
+        "sigtests/access/T2c/balanced accuracy",
+        "sigtests/access/T2c/selected runtime",
+        *fig11,
+        "sigtests/physical/Section 6.6: LCM vs PG10/selected runtime/IMDB+indexes",
+        "sigtests/physical/Section 6.6: LCM vs PG10/pick rate/IMDB+indexes",
+        "sigtests/physical/Section 6.6: PG16 vs PG10/selected runtime/IMDB+indexes",
+        "sigtests/physical/Section 6.6: PG16 vs PG10/pick rate/IMDB+indexes",
+        "sigtests/versions",
+        "bias_models/test2",
+    )
+    assert len(set(c.FAMILY_IDS)) == len(c.FAMILY_IDS) == 28

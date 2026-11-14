@@ -1,7 +1,7 @@
 """sigtests.py versions: plan selection of two PostgreSQL versions on the same machine (E2).
 
-Each version's plan choice (lowest est_cost) is scored against its own runtimes; bootstrap over queries,
-drawn from tasks.common.RNG; Wilcoxon on per-query log slow-downs.
+Each version's plan choice (lowest est_cost) is scored against its own runtimes; bootstrap over queries
+with the index matrix of family "sigtests/versions"; Wilcoxon on per-query log slow-downs.
 
 Usage:
   from lcm_recheck.tasks.versions import versions
@@ -12,8 +12,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from lcm_recheck.stats import boot, ci_p, wilcoxon_p
-from lcm_recheck.tasks.common import RNG
+from lcm_recheck.stats import boot, ci_p, resample_idx, wilcoxon_p
 
 
 def per_version(df: pd.DataFrame, penalty: float | None) -> pd.DataFrame:
@@ -43,7 +42,7 @@ def versions(a: argparse.Namespace) -> None:
     def stat(ps: list[tuple[float, float, float, float]]) -> float:
         return (sum(x[2] for x in ps) / sum(x[3] for x in ps)) - (sum(x[0] for x in ps) / sum(x[1] for x in ps))
 
-    obs, lo, hi, _ = ci_p(boot(per, stat, rng=RNG), stat(per))
+    obs, lo, hi, _ = ci_p(boot(per, stat, idx=resample_idx("sigtests/versions", len(per))), stat(per))
     d = np.log(sb.r / sb.opt) - np.log(sa.r / sa.opt)
     p, nz = wilcoxon_p(d)
     print(f"  difference ({nb} - {na}) in total slow-down: {100 * obs:.2f} pp, 95% CI [{100 * lo:.2f}, {100 * hi:.2f}]")

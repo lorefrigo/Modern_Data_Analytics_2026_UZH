@@ -1,7 +1,8 @@
 """sigtests.py paper, Task 2: access path selection, index scan vs sequential scan (Table 3, Fig. 14).
 
 T2a balanced accuracy and T2b selected runtime of each LCM (and PG16) vs PG10, T2c fine-tuned LCMs
-(Fig. 14). Bootstrap over columns, drawn from tasks.common.RNG via compare().
+(Fig. 14). Bootstrap over columns; each family resamples with its own index matrix (via compare()),
+shared by all its models. Family ids: config.FAMILY_IDS.
 
 Usage:
   from lcm_recheck.tasks.access import task_access
@@ -91,15 +92,15 @@ def task_access(a: argparse.Namespace) -> None:
         print(f"  {m:17s} B = {np.mean([scores[m][c]['B'] for c in cs]):.3f}   runtime "
               f"{sum(scores[m][c]['runtime'] for c in cs):10.2f}" + ("" if len(cs) == len(cols) else f"  ({len(cs)} columns)"))
 
-    for metric, kind, key, title in [
-            ("balanced accuracy", "score", "B", "T2a [LCM vs PG10] balanced accuracy: delta = mean over columns of (B_LCM - B_PG10); bootstrap over columns"),
-            ("selected runtime", "runtime", "runtime", "T2b [LCM vs PG10] selected runtime: delta = sum over columns of (runtime_LCM - runtime_PG10); bootstrap over columns")]:
+    for metric, kind, key, test, title in [
+            ("balanced accuracy", "score", "B", "T2a", "T2a [LCM vs PG10] balanced accuracy: delta = mean over columns of (B_LCM - B_PG10); bootstrap over columns"),
+            ("selected runtime", "runtime", "runtime", "T2b", "T2b [LCM vs PG10] selected runtime: delta = sum over columns of (runtime_LCM - runtime_PG10); bootstrap over columns")]:
         members = [m for m in LCMS if scores[m]]
         rows = []
         for m in members:
             cs = [c for c in cols if c in scores[m]]
             rows.append({"model": m, **compare([scores[m][c][key] for c in cs], [scores[REF][c][key] for c in cs],
-                                               len(members), kind)})
+                                               len(members), kind, family=f"sigtests/access/{test}/LCM vs PG10")})
         df = finish_family(rows)
         show(title, df)
         record("2 access path", "LCM vs PG10", metric, df)
@@ -107,7 +108,8 @@ def task_access(a: argparse.Namespace) -> None:
             cs = [c for c in cols if c in scores[PG16]]
             show(f"{title.split(']')[0].replace('LCM', 'PG16')}] {metric}",
                  finish_family([{"model": PG16, **compare([scores[PG16][c][key] for c in cs],
-                                                          [scores[REF][c][key] for c in cs], 1, kind)}]))
+                                                          [scores[REF][c][key] for c in cs], 1, kind,
+                                                          family=f"sigtests/access/{test}/PG16 vs PG10")}]))
 
     # Fig. 14: fine-tuned LCMs on the IMDB columns
     if not os.path.isdir(a.retrain_root):
@@ -135,7 +137,7 @@ def task_access(a: argparse.Namespace) -> None:
               f"{sum(ft[m][c]['runtime'] for c in cols_ft):.2f}{b_txt}")
     for metric, kind, key in [("balanced accuracy", "score", "B"), ("selected runtime", "runtime", "runtime")]:
         rows = [{"model": m, **compare([ft[m][c][key] for c in cols_ft], [ft[REF][c][key] for c in cols_ft],
-                                       len(members), kind)} for m in members]
+                                       len(members), kind, family=f"sigtests/access/T2c/{metric}")} for m in members]
         df = finish_family(rows)
         show(f"T2c [fine-tuned LCM vs PG10] {metric}", df)
         record("2 access path", "fine-tuned LCM vs PG10 (Fig. 14)", metric, df)

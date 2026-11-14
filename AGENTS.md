@@ -63,15 +63,15 @@ All commands run from the repository root.
 | `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised |
 | `src/lcm_recheck/report.py` | `section()`, `Tee` and `tee_output()`: the `--out` file with its header (date, command, versions + a script-specific suffix) and the script's closing line |
 | `src/lcm_recheck/runs.py` | Run-file parsing: `load_run()` (ijson streaming or `json.load`; errors on files without `query_list` and on parsed_plans files), `json_root()` (the three JSON plan shapes `[{"Plan": …}]`, `{"Plan": …}`, bare node), `lines()`, `exec_ms()`, `top_cost()`, `plan_shape()`, `plan_nodes()` |
-| `src/lcm_recheck/stats.py` | Statistics helpers, no generator of its own: `holm()`, `boot()`/`boot_fast()` (draw from the `rng` they are given), `ci()`, `boot_p()`, `ci_p()`, `wilcoxon_p()`, `mcnemar()`, `wilson()`, `cp_upper()` |
-| `src/lcm_recheck/tasks/common.py` | Shared by the `sigtests.py` tasks: the one sigtests generator `RNG`, the `SUMMARY` list (`record()`, `summary()`), `compare()`, `compare_pick()`, `finish_family()`, `show()`, `load_workload()`, `with_common_labels()` |
+| `src/lcm_recheck/stats.py` | Statistics helpers, no module-level generator: `family_rng()`/`resample_idx()` (one generator and one resample-index matrix per test family), `holm()`, `boot()`/`boot_fast()` (apply the index matrix they are given), `ci()`, `boot_p()`, `ci_p()`, `wilcoxon_p()`, `mcnemar()`, `wilson()`, `cp_upper()` |
+| `src/lcm_recheck/tasks/common.py` | Shared by the `sigtests.py` tasks: the `SUMMARY` list (`record()`, `summary()`), `compare()`/`compare_pick()` (bootstrap with the matrix of the `family` they are given), `finish_family()`, `show()`, `load_workload()`, `with_common_labels()` |
 | `src/lcm_recheck/tasks/join.py`, `access.py`, `physical.py`, `versions.py` | `sigtests.py paper` Tasks 1, 2, 3 and `sigtests.py versions` |
 | `src/lcm_recheck/tasks/bias_data.py` | Test 1 of the bias tests (run-file records, crossover rule, 1a-1e, leakage check) |
-| `src/lcm_recheck/tasks/bias_models.py` | Tests 2 and 3a of the bias tests, with their own generator `RNG` |
-| `tests/test_config.py` | Consistency checks of `config.py` (no data, no database) |
+| `src/lcm_recheck/tasks/bias_models.py` | Tests 2 and 3a of the bias tests; Test 2 uses the one index matrix of family `bias_models/test2` |
+| `tests/test_config.py` | Consistency checks of `config.py` (no data, no database); pins the full list of `FAMILY_IDS` |
 | `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
-| `tests/test_hints.py`, `tests/test_report.py`, `tests/test_runs.py`, `tests/test_stats.py` | Unit tests of the package helpers (no data, no database); `test_stats.py` also pins the draw pattern of `boot()`/`boot_fast()` |
-| `tests/test_tasks.py` | Wiring of `tasks/`: every sigtests task draws from `tasks.common.RNG`, `bias_models` has its own, `stats` none; `SUMMARY` order |
+| `tests/test_hints.py`, `tests/test_report.py`, `tests/test_runs.py`, `tests/test_stats.py` | Unit tests of the package helpers (no data, no database); `test_stats.py` also pins the family seeding (`[0, crc32(family_id)]`) and how `boot()`/`boot_fast()` apply the index matrix |
+| `tests/test_tasks.py` | Wiring of `tasks/`: no module-level generator anywhere; which family ids `compare()`, `compare_pick()`, `physical_family()`, `versions()` and `bias_models.test2()` use; members of a family share one matrix; no dependence on call order; `SUMMARY` order |
 | `tests/test_scripts.py` | Every script only defines things on import (nothing runs or prints) and has a `main()` |
 | `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
 | `tools/dump_defaults.py` | Prints the argparse defaults of a script without running it (used by `verify_golden.sh`) |
@@ -112,10 +112,6 @@ Known problems to fix:
 - The SQL fix exists only as a shell loop.
 - Generated prediction folders (`postgres_18`, `postgres_18_asis`) are written **inside**
   `lcm-eval/data/evaluation/`, which is gitignored and belongs to the authors.
-- `sigtests.py` uses one module-level random generator (`tasks/common.py`'s `RNG`), so bootstrap results depend
-  on the order of calls. `bias_models.py` has its own module-level `RNG = np.random.default_rng(0)`
-  (`tasks/bias_models.py`); Test 2 draws one index matrix
-  from it and shares it across 2a, 2b, 2c and all models.
 - `extract_runs.py` averages a plan's repetitions with `sum/len`, so one repetition without an `Execution Time`
   (NaN from `exec_ms()`) makes `runtime_s` NaN; `bias_data.py`'s `mean_exec_ms()` drops such repetitions.
 - `plan_nodes()` names aggregate nodes differently per format: `Finalize Aggregate`/`Partial Aggregate` in text
@@ -167,6 +163,8 @@ prediction folder is kept as `postgres_18_asis`.
   because it is randomized per process. Within a family all models use the same resample indices, because
   the comparisons with PG10 and with the optimum are paired. Results must then not depend on which tasks
   are run or in which order.
+  - The family ids (`config.FAMILY_IDS`, pinned in `tests/test_config.py`) are part of this protocol:
+    renaming one changes its bootstrap numbers and needs the same treatment as the option-B commit.
   - The option-B commit may change bootstrap intervals, bootstrap p-values and the verdicts that rest on
     them (runtime and balanced-accuracy verdicts in `sigtests.py`, Tests 2a and 2b in `bias_models.py`).
     Exact tests (Wilcoxon, McNemar), totals and point estimates must not change. The commit message lists

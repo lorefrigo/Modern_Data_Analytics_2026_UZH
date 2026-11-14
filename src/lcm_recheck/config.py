@@ -55,7 +55,7 @@ PORTS = {PG18: 5418}             # one server per version (Postgres.app, server 
 
 # ----------------------------------------------------------------------------- statistical protocol
 B = 10_000                       # bootstrap resamples
-BASE_SEED = 0                    # seed of the bootstrap random generators
+BASE_SEED = 0                    # base seed: each test family's generator is seeded with [BASE_SEED, crc32(family_id)]
 SEEDS = (0, 1, 2)                # LCM training seeds; predictions are averaged over them
 
 # ----------------------------------------------------------------------------- workloads
@@ -90,3 +90,30 @@ PHYSICAL = {   # Task 3, Fig. 11: dataset -> (database folder, workload folder, 
     "TPC-H": ("tpc_h_pk", "physical_plan", [f"tpc_h_{i}" for i in _TPCH_PP.split()]),
     "Baseball": ("baseball", "physical_plan", [f"baseball_{i}" for i in _BASE_PP.split()])}
 PHYSICAL_INDEX = ("imdb", "physical_index_plan", [f"scale_{i}" for i in _IMDB_PP.split()])   # Section 6.6
+
+# ----------------------------------------------------------------------------- bootstrap test families
+# One random generator per family, seeded with [BASE_SEED, zlib.crc32(family_id.encode())]
+# (stats.family_rng); every model in a family resamples with the same index matrix. The ids are part of the
+# statistical protocol: renaming one changes its bootstrap numbers. stats.family_rng refuses ids not listed here.
+_PHYSICAL_FAMILIES = [f"sigtests/physical/{comparison}/{metric}/{dataset}"
+                      for comparison, datasets in [("Fig. 11: LCM vs PG10", PHYSICAL),
+                                                   ("Fig. 11: PG16 vs PG10", PHYSICAL),
+                                                   ("Section 6.6: LCM vs PG10", ["IMDB+indexes"]),
+                                                   ("Section 6.6: PG16 vs PG10", ["IMDB+indexes"])]
+                      for metric in ("selected runtime", "pick rate")
+                      for dataset in datasets]
+FAMILY_IDS = (
+    "sigtests/join/H1/LCM vs PG10",                   # Task 1 selected runtime
+    "sigtests/join/H1/PG version vs PG10",
+    "sigtests/join/H2/LCM vs PG10",                   # Task 1 median Q-error
+    "sigtests/join/H1b/LCM (act. card.) vs PG10",
+    "sigtests/access/T2a/LCM vs PG10",                # Task 2 balanced accuracy
+    "sigtests/access/T2a/PG16 vs PG10",
+    "sigtests/access/T2b/LCM vs PG10",                # Task 2 selected runtime
+    "sigtests/access/T2b/PG16 vs PG10",
+    "sigtests/access/T2c/balanced accuracy",          # Task 2 fine-tuned LCMs (Fig. 14)
+    "sigtests/access/T2c/selected runtime",
+    *_PHYSICAL_FAMILIES,                              # Task 3, one id per comparison, metric and dataset
+    "sigtests/versions",                              # sigtests.py versions
+    "bias_models/test2",                              # bias_models.py Test 2 (2a, 2b, 2c share one matrix)
+)

@@ -41,7 +41,7 @@ def main():
     a = ap.parse_args()
     a.eval_root = os.path.expanduser(a.eval_root)
     a.retrain_root = os.path.expanduser(a.retrain_root or default_retrain_root(a.eval_root))
-    with tee_output(a.out, header_extra=f"; bootstrap seed {BASE_SEED}, {B} resamples",
+    with tee_output(a.out, header_extra=f"; bootstrap base seed {BASE_SEED} (family bias_models/test2), {B} resamples",
                     closing=f"Output written to {a.out}"):
         if "2" in a.tests:
             test2(a)

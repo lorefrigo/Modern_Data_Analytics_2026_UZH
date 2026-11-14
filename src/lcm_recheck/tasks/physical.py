@@ -1,8 +1,9 @@
 """sigtests.py paper, Task 3: physical operator selection, hash vs merge vs index nested-loop join
 (Fig. 11, Section 6.6).
 
-Selected runtime (bootstrap over queries, drawn from tasks.common.RNG via compare/compare_pick) and pick
-rate (exact McNemar, Holm) of each LCM and PG16 vs PG10; Section 6.6 with indexes on the filter columns.
+Selected runtime (bootstrap over queries) and pick rate (exact McNemar, Holm) of each LCM and PG16 vs PG10;
+Section 6.6 with indexes on the filter columns. Each comparison, metric and dataset resamples with its own
+index matrix (via compare/compare_pick), shared by all its models. Family ids: config.FAMILY_IDS.
 
 Usage:
   from lcm_recheck.tasks.physical import task_physical
@@ -60,11 +61,13 @@ def physical_family(scores_by_ds: dict[str, tuple[dict[str, Any], list[str]]], m
             qs = [q for q in queries if q in scores[m]]
             if not qs:
                 continue
+            fam = f"sigtests/physical/{comparison}"
             rt.append({"dataset": ds, "model": m, **compare([scores[m][q]["runtime"] for q in qs],
                                                             [scores[REF][q]["runtime"] for q in qs], k_runtime,
-                                                            "runtime")})
+                                                            "runtime", family=f"{fam}/selected runtime/{ds}")})
             pk.append({"dataset": ds, "model": m, **compare_pick([scores[m][q]["pick"] for q in qs],
-                                                                 [scores[REF][q]["pick"] for q in qs])})
+                                                                 [scores[REF][q]["pick"] for q in qs],
+                                                                 family=f"{fam}/pick rate/{ds}")})
     rt, pk = finish_family(rt), finish_family(pk, pick=True)
     show(f"[{comparison}] selected runtime: delta = sum_q (r_model - r_PG10); bootstrap over queries", rt)
     show(f"[{comparison}] pick rate (share of queries where the optimal join operator was picked); "

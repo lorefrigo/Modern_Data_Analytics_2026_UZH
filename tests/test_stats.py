@@ -1,7 +1,10 @@
-"""lcm_recheck.stats against hand-computed values, and the exact draw pattern of the bootstrap helpers."""
+"""lcm_recheck.stats against hand-computed values, and the per-family resampling of option B."""
+import zlib
+
 import numpy as np
 import pytest
 
+from lcm_recheck.config import FAMILY_IDS, B
 from lcm_recheck.stats import (
     boot,
     boot_fast,
@@ -9,8 +12,10 @@ from lcm_recheck.stats import (
     ci,
     ci_p,
     cp_upper,
+    family_rng,
     holm,
     mcnemar,
+    resample_idx,
     wilcoxon_p,
     wilson,
 )
@@ -77,29 +82,65 @@ def test_cp_upper() -> None:
     assert cp_upper(10, 10) == 1.0
 
 
-# ----------------------------------------------------------------------------- draw patterns (pinned)
+# ----------------------------------------------------------------------------- option B resampling
 VALUES = np.array([10.0, 20.0, 30.0, 40.0, 55.0])
+FAM = "sigtests/versions"
 
 
-def test_boot_draw_pattern() -> None:
-    """boot draws b times rng.integers(0, n, n), in order, from the generator it is given."""
-    ref = np.random.default_rng(0)
-    expected = [np.mean([VALUES[j] for j in ref.integers(0, 5, 5)]) for _ in range(7)]
-    rng = np.random.default_rng(0)
-    np.testing.assert_array_equal(boot(list(VALUES), np.mean, rng=rng, b=7), expected)
-    # the caller's generator has advanced exactly as far as the reference one
-    assert rng.integers(0, 1 << 30) == ref.integers(0, 1 << 30)
+def test_family_rng_seed_is_base_seed_and_crc32() -> None:
+    assert zlib.crc32(FAM.encode()) == 37512926          # pinned: crc32 is stable across processes, hash() is not
+    assert family_rng(FAM).bit_generator.seed_seq.entropy == [0, 37512926]
+    for fid in FAMILY_IDS:
+        assert family_rng(fid).bit_generator.seed_seq.entropy == [0, zlib.crc32(fid.encode())]
 
 
-def test_boot_fast_draw_pattern() -> None:
-    """boot_fast draws once rng.integers(0, n, (b, n)) from the generator it is given."""
-    ref = np.random.default_rng(0)
-    expected = VALUES[ref.integers(0, 5, (7, 5))].sum(axis=1)
-    rng = np.random.default_rng(0)
-    np.testing.assert_array_equal(boot_fast(VALUES, np.sum, rng=rng, b=7), expected)
-    assert rng.integers(0, 1 << 30) == ref.integers(0, 1 << 30)
+def test_family_rng_refuses_unregistered_ids() -> None:
+    with pytest.raises(ValueError, match="unknown test family"):
+        family_rng("sigtests/versions ")
 
 
-def test_boot_needs_a_generator() -> None:
+def test_family_rng_is_fresh_each_call() -> None:
+    a, b = family_rng(FAM), family_rng(FAM)
+    assert a is not b
+    np.testing.assert_array_equal(a.integers(0, 1 << 30, 5), b.integers(0, 1 << 30, 5))
+
+
+def test_resample_idx_is_one_draw_from_the_family_generator() -> None:
+    idx = resample_idx(FAM, 5, b=7)
+    assert idx.shape == (7, 5)
+    np.testing.assert_array_equal(idx, family_rng(FAM).integers(0, 5, (7, 5)))
+    np.testing.assert_array_equal(idx, resample_idx(FAM, 5, b=7))   # same family and n: identical matrix
+    assert resample_idx(FAM, 58).shape == (B, 58)                       # default b = B
+
+
+def test_resample_idx_differs_between_families() -> None:
+    a = resample_idx("sigtests/join/H1/LCM vs PG10", 58)
+    b = resample_idx("sigtests/join/H1/PG version vs PG10", 58)
+    assert not np.array_equal(a, b)
+
+
+def test_boot_applies_idx_row_by_row() -> None:
+    idx = np.array([[0, 0, 0, 0, 0], [4, 3, 2, 1, 0], [1, 1, 4, 4, 2]])
+    expected = [10.0, VALUES.mean(), np.mean([20, 20, 55, 55, 30])]
+    np.testing.assert_array_equal(boot(list(VALUES), np.mean, idx=idx), expected)
+    np.testing.assert_array_equal(boot_fast(VALUES, np.mean, idx=idx), expected)
+
+
+def test_boot_and_boot_fast_agree_on_family_indices() -> None:
+    idx = resample_idx(FAM, 5, b=50)
+    np.testing.assert_allclose(boot(list(VALUES), np.sum, idx=idx), boot_fast(VALUES, np.sum, idx=idx))
+
+
+def test_boot_rejects_idx_of_wrong_width() -> None:
+    idx = resample_idx(FAM, 4, b=3)
+    with pytest.raises(ValueError, match="does not fit 5 units"):
+        boot_fast(VALUES, np.sum, idx=idx)
+    with pytest.raises(ValueError, match="does not fit 5 units"):
+        boot(list(VALUES), np.sum, idx=idx)
+
+
+def test_boot_needs_idx() -> None:
     with pytest.raises(TypeError):
         boot_fast(VALUES, np.sum)  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        boot_fast(VALUES, np.sum, rng=np.random.default_rng(0))  # type: ignore[call-arg]
