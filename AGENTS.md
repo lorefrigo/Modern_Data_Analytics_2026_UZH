@@ -52,12 +52,14 @@ Models, Really?* (SIGMOD 2025). It contains four pieces of work, all on top of t
 - **Python** managed by uv. Always run code with `uv run`. Add dependencies with `uv add`. Keep the
   dependency set small: never import the authors' training stack (torch, DGL).
 
-## Current layout (before the refactoring)
+## Layout
 
 All commands run from the repository root.
 
 | File | Purpose |
 |---|---|
+| `README.md` | For readers: summary, key findings, quick start without a database, full E1 and bias Test 1 commands (all tested in a fresh clone) |
+| `LICENSE` | Apache License 2.0 for this repository's own code |
 | `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `PRED_ROOT` (`results/predictions`), `default_retrain_root()`, `model_root()` (a model's predictions come from `extra_root` if it has a folder there, else from `eval_root`), `shadowed_models()` |
 | `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
 | `src/lcm_recheck/hints.py` | `leading()`: content of the `Leading(...)` hint, whitespace-normalised; `fix_nestloop()`: `NestedLoop(` → `NestLoop(` on the bytes of a SQL file, with the number of changed lines and replacements |
@@ -174,9 +176,12 @@ prediction folder is `postgres_18_asis` (`make_predcsv.py --label postgres_18_as
 
 Ask the human before changing anything in this section.
 
-## Refactoring plan
+## Refactoring plan (done)
 
-Do one step per commit and verify each step (see "Verification") before the next one.
+All ten steps are done, one commit per step, each verified as in "Verification": step 1 `e85f590`,
+2 `886a030`, 3 `d3d9733`, 4 `4e0f055`, 5 `50db2d7`, 6 `970ae31` (results regenerated in `80ccb42`),
+7 `74eecf5`, 8 `af147fc`, 9 `6a0e170`, 10 `62c6fa9`, `e47d877` and `9b100cf`. The list below records what
+each step did. Later changes follow the same rules: one change per commit, verified before the next one.
 
 1. `src/lcm_recheck/config.py`: the single source for paths, default ports, the 58 JOB-light ids, the model
    lists, seeds, workload lists, the `scan_costs_percentiles` folder, the `retraining_evaluation` default
@@ -211,13 +216,14 @@ Do one step per commit and verify each step (see "Verification") before the next
 9. `pytest` and `ruff` as dev dependencies (`uv add --dev`), ruff settings in `pyproject.toml` (excludes
    `lcm-eval/`), and `ruff check .` clean, including `scripts/`. Decided: no console entry points; the
    interface stays `uv run python scripts/<name>.py`.
-10. Update the README's command section from the final code. Before the README is written, in this order:
-    - One commit across all scripts: give every command-line option a `--help` text. No default changes;
-      `tools/verify_golden.sh` then reports DIFFERENT only for the `--help` checks of the scripts touched.
+10. README, in three commits:
+    - Every command-line option has a `--help` text. No default changed; `tools/verify_golden.sh` reported
+      DIFFERENT only for the `--help` checks of the scripts touched.
     - `tee_output()` (`src/lcm_recheck/report.py`) prints the script's closing line ("Output written to
-      ...") only when the run finished without an exception. Today it is also printed on errors, as the
-      scripts did before step 3. Stdout is still restored and the file still closed in `finally`. Update
-      the test in `tests/test_report.py` that pins today's behaviour.
+      ...") only when the run finished without an exception; before, it was also printed on errors.
+      Stdout is still restored and the file still closed in `finally`; `tests/test_report.py` pins this.
+    - `README.md`, written from the final code (every command run in a fresh clone), and `LICENSE`
+      (Apache License 2.0).
 
 Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
 
