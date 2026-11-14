@@ -19,7 +19,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", required=True, help="folder containing job_light_*.json run files")
     ap.add_argument("--version", required=True, help="label, e.g. pg10_paper, pg10_local, pg18_local")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--out", required=True, help="output CSV, one row per candidate plan")
     a = ap.parse_args()
 
     rows = []

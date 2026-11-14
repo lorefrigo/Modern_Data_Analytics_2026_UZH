@@ -34,9 +34,10 @@ from lcm_recheck.tasks.bias_models import test2, test3a
 # ----------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--eval_root", required=True)
+    ap.add_argument("--eval_root", required=True, help="the authors' evaluation folder (predictions downloaded from OSF)")
     ap.add_argument("--retrain_root", help="fine-tuned predictions (default: retraining_evaluation next to eval_root)")
-    ap.add_argument("--tests", nargs="+", choices=["2", "3a"], default=["2", "3a"])
+    ap.add_argument("--tests", nargs="+", choices=["2", "3a"], default=["2", "3a"],
+                    help="tests to run: 2 (do the models show the bias?), 3a (does fine-tuning fix the choices?)")
     ap.add_argument("--out", help="also write the output to this file (overwritten)")
     a = ap.parse_args()
     a.eval_root = os.path.expanduser(a.eval_root)

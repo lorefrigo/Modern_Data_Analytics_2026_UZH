@@ -23,9 +23,15 @@ from lcm_recheck.hints import leading
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pg10", required=True); ap.add_argument("--pg18", required=True)
-    ap.add_argument("--status", required=True); ap.add_argument("--eval_root", required=True)
-    ap.add_argument("--models", nargs="+", default=PG_VERSIONS)
+    ap.add_argument("--pg10", required=True,
+                    help="extract_runs.py output of the authors' PG10 runs (results/pg10_paper.csv)")
+    ap.add_argument("--pg18", required=True,
+                    help="extract_runs.py output of a PG18 explain-only run on the pinned SQL")
+    ap.add_argument("--status", required=True,
+                    help="diagnose_hints.py output for the same SQL (which lines lost their Leading hint)")
+    ap.add_argument("--eval_root", required=True, help="the authors' evaluation folder (predictions downloaded from OSF)")
+    ap.add_argument("--models", nargs="+", default=PG_VERSIONS,
+                    help="prediction folders to check for tied predictions")
     ap.add_argument("--extra_root", default=PRED_ROOT,
                     help="generated prediction folders (make_predcsv.py); used for a model that has a folder here")
     a = ap.parse_args()

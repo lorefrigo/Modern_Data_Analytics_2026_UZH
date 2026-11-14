@@ -21,8 +21,12 @@ from lcm_recheck.hints import leading
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pg10", required=True); ap.add_argument("--pinned_dir", required=True)
-    ap.add_argument("--eval_root", required=True)
+    ap.add_argument("--pg10", required=True,
+                    help="extract_runs.py output of the authors' PG10 runs (results/pg10_paper.csv)")
+    ap.add_argument("--pinned_dir", required=True,
+                    help="folder with the authors' pinned SQL (join_order_full_pg_10_hinted)")
+    ap.add_argument("--eval_root", required=True,
+                    help="the authors' evaluation folder with the Sc. PG16 predictions")
     a = ap.parse_args()
     pg10 = pd.read_csv(a.pg10)
     pg10["ok"] = ~pg10.timeout & pg10.runtime_s.notna()

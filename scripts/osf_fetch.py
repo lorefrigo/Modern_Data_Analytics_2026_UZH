@@ -38,7 +38,7 @@ def unzip_recursively(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--project", default=OSF_PROJECT)
+    ap.add_argument("--project", default=OSF_PROJECT, help="OSF project id")
     ap.add_argument("--list", action="store_true", help="only list files and sizes")
     ap.add_argument("--save", help="with --list: also write the listing to this TSV file")
     ap.add_argument("--match", action="append", default=[], help="substring the path must contain (repeatable)")

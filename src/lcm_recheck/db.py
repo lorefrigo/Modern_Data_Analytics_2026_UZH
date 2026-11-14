@@ -22,14 +22,15 @@ from lcm_recheck.config import PG_DB, PG_HOST, PG_PASSWORD, PG_USER
 
 def add_db_args(ap: argparse.ArgumentParser, *, port: int | None) -> None:
     """Add --host --port --user --password --db to `ap`; --port is required if `port` is None."""
-    ap.add_argument("--host", default=PG_HOST)
+    ap.add_argument("--host", default=PG_HOST, help="PostgreSQL server host")
     if port is None:
-        ap.add_argument("--port", type=int, required=True)
+        ap.add_argument("--port", type=int, required=True,
+                        help="PostgreSQL server port (required: it names the server and so the PostgreSQL version)")
     else:
-        ap.add_argument("--port", type=int, default=port)
-    ap.add_argument("--user", default=PG_USER)
-    ap.add_argument("--password", default=PG_PASSWORD)
-    ap.add_argument("--db", default=PG_DB)
+        ap.add_argument("--port", type=int, default=port, help="PostgreSQL server port")
+    ap.add_argument("--user", default=PG_USER, help="PostgreSQL user")
+    ap.add_argument("--password", default=PG_PASSWORD, help="PostgreSQL password")
+    ap.add_argument("--db", default=PG_DB, help="database name")
 
 
 def connect(a: argparse.Namespace, dbname: str | None = None) -> connection:

@@ -28,10 +28,12 @@ def rows(cur, sql):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sql_dir", required=True, help="folder with job_light_<k>.sql (one SQL per line)")
-    ap.add_argument("--out_dir", required=True)
+    ap.add_argument("--out_dir", required=True,
+                    help="folder for the run files, one job_light_<k>.json per query (existing files are skipped)")
     ap.add_argument("--queries", nargs="+", required=True, help="query ids, e.g. 0 1 2")
-    ap.add_argument("--explain_only", action="store_true")
-    ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--explain_only", action="store_true",
+                    help="only EXPLAIN VERBOSE (estimated costs); no plan is executed")
+    ap.add_argument("--reps", type=int, default=3, help="EXPLAIN ANALYZE runs per plan (ignored with --explain_only)")
     ap.add_argument("--timeout", type=int, default=30, help="seconds per statement")
     add_db_args(ap, port=None)
     a = ap.parse_args()

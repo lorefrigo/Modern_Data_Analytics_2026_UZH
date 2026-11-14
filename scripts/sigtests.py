@@ -53,14 +53,23 @@ def main():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--out", help="also write the output to this file (folders are created; an existing file is overwritten)")
     ap = argparse.ArgumentParser(); sp = ap.add_subparsers(dest="mode", required=True)
-    p1 = sp.add_parser("paper", parents=[common]); p1.add_argument("--eval_root", required=True)
+    p1 = sp.add_parser("paper", parents=[common], help="test the paper's main claim on the authors' predictions")
+    p1.add_argument("--eval_root", required=True, help="the authors' evaluation folder (predictions downloaded from OSF)")
     p1.add_argument("--retrain_root", help="fine-tuned predictions (Fig. 14); default: retraining_evaluation next to eval_root")
-    p1.add_argument("--tasks", nargs="+", choices=["join", "access", "physical"], default=["join", "access", "physical"])
+    p1.add_argument("--tasks", nargs="+", choices=["join", "access", "physical"],
+                    default=["join", "access", "physical"],
+                    help="tasks to run: join (Task 1, join order), access (Task 2, access path), "
+                         "physical (Task 3, join operator)")
     p1.add_argument("--extra_root", default=PRED_ROOT,
                     help="generated prediction folders (make_predcsv.py); Task 1 reads a model from here if it has a "
                          "folder here, otherwise from eval_root")
-    p2 = sp.add_parser("versions", parents=[common]); p2.add_argument("--a", required=True); p2.add_argument("--b", required=True)
-    p2.add_argument("--timeout_penalty", type=float, default=None)
+    p2 = sp.add_parser("versions", parents=[common],
+                       help="compare two PostgreSQL versions' plan selection (extract_runs.py CSVs)")
+    p2.add_argument("--a", required=True, help="extract_runs.py CSV of the first version (e.g. PG10)")
+    p2.add_argument("--b", required=True, help="extract_runs.py CSV of the second version (e.g. PG18)")
+    p2.add_argument("--timeout_penalty", type=float, default=None,
+                    help="count timed-out plans at this runtime in seconds instead of dropping them "
+                         "(sensitivity check)")
     a = ap.parse_args()
     if a.mode == "paper":
         a.eval_root = os.path.expanduser(a.eval_root)

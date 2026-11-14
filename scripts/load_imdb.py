@@ -163,7 +163,8 @@ def main():
                     help="repo folder with schema.json, table_lengths.json, schema_sql/postgres.sql")
     pgdb.add_db_args(ap, port=PORTS[PG18])
     ap.add_argument("--force", action="store_true", help="drop and reload an existing database")
-    ap.add_argument("--check_only", action="store_true")
+    ap.add_argument("--check_only", action="store_true",
+                    help="load nothing; only check row counts, planner settings and that hints work")
     a = ap.parse_args()
 
     with open(os.path.join(a.dataset_dir, "schema.json")) as f:

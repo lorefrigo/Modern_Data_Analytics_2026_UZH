@@ -39,8 +39,11 @@ def keywords(s):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pg18", required=True); ap.add_argument("--eval_root", required=True)
-    ap.add_argument("--out", default="results/pg18_hint_status.csv")
+    ap.add_argument("--pg18", required=True,
+                    help="extract_runs.py output of the PG18 explain-only run whose SQL lines are re-planned")
+    ap.add_argument("--eval_root", required=True, help="the authors' evaluation folder (predictions downloaded from OSF)")
+    ap.add_argument("--out", default="results/pg18_hint_status.csv",
+                    help="output CSV, one row per SQL line with its hint status")
     ap.add_argument("--extra_root", default=PRED_ROOT,
                     help="generated prediction folders (make_predcsv.py); used for a model that has a folder here")
     add_db_args(ap, port=PORTS[PG18])
