@@ -60,11 +60,12 @@ def test_overwrites(tmp_path: Path, real_stdout: io.StringIO) -> None:
     assert "old content" not in out.read_text(encoding="utf-8")
 
 
-def test_exception_still_restores_closes_and_prints_closing(tmp_path: Path, real_stdout: io.StringIO) -> None:
+def test_exception_restores_and_closes_without_closing_line(tmp_path: Path, real_stdout: io.StringIO) -> None:
     out = tmp_path / "out.txt"
     with pytest.raises(RuntimeError, match="boom"), tee_output(str(out), header_extra="", closing="CLOSING"):
         print("partial")
         raise RuntimeError("boom")
     assert sys.stdout is sys.__stdout__
     assert out.read_text(encoding="utf-8").endswith("\npartial\n")    # flushed and closed
-    assert real_stdout.getvalue().endswith("partial\nCLOSING\n")      # printed on errors too, as before
+    assert real_stdout.getvalue().endswith("partial\n")               # no closing line after an error
+    assert "CLOSING" not in real_stdout.getvalue()

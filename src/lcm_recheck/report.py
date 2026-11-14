@@ -42,15 +42,16 @@ def tee_output(path: str | None, *, header_extra: str, closing: str) -> Iterator
     """With `path`, print to the terminal and to `path` (folders created, an existing file overwritten).
 
     The file starts with three header lines: date, exact command, package versions followed by
-    `header_extra`. On leaving the block, also by an exception, stdout is restored, the file closed and
-    `closing` printed to the terminal. Without `path` nothing changes.
+    `header_extra`. On leaving the block, also by an exception, stdout is restored and the file closed;
+    `closing` is printed to the terminal only if the block finished without an exception. Without `path`
+    nothing changes.
     """
     if not path:
         yield
         return
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    # not a `with` block: as in the scripts before, stdout is restored before the file is closed, and the
-    # closing line is printed after that (not if open() itself fails)
+    # not a `with` block: as in the scripts before, stdout is restored before the file is closed; the
+    # closing line comes after that, and only after a successful run (an exception skips it)
     out_file = open(path, "w", encoding="utf-8")  # noqa: SIM115  # "w": an existing file is overwritten
     sys.stdout = Tee(sys.__stdout__, out_file)
     print(f"# {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
@@ -62,4 +63,4 @@ def tee_output(path: str | None, *, header_extra: str, closing: str) -> Iterator
     finally:
         sys.stdout = sys.__stdout__
         out_file.close()
-        print(closing)
+    print(closing)
