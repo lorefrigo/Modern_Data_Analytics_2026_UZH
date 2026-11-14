@@ -4,8 +4,9 @@
 # Prints one line per check: IDENTICAL, DIFFERENT, ERROR (a command failed) or SKIPPED (input missing).
 #   1. command line: argparse defaults (tools/dump_defaults.py) and --help of every script, against the
 #      scripts and src/ at --base (default HEAD);
-#   2. golden outputs without the database: sigtests paper/versions, bias_models, bias_data, the stdout of the
-#      check_* scripts, make_pg18_predcsv CSVs (and its stdout against the --base code);
+#   2. golden outputs without the database: sigtests paper/versions, bias_models, bias_data, extract_runs on the
+#      full run folders (cmp with the committed CSVs), the stdout of the check_* scripts, make_pg18_predcsv CSVs
+#      (and its stdout against the --base code);
 #   3. database checks (read-only, no EXPLAIN ANALYZE): run_plans --explain_only est_cost, load_imdb
 #      --check_only, diagnose_hints. Skipped with a note if the server is not reachable (never started here).
 # Writes only to a new temp folder, deleted at the end unless a check fails or --keep is given.
@@ -134,6 +135,24 @@ if [ "$RUN_NODB" = 1 ]; then
   # shellcheck disable=SC2086
   check_out "bias_data 19 databases" $G/bias_data_19dbs_rerun.txt bias_data_19dbs \
     $PY scripts/bias_data.py --train_runs $dbs19 --out "$T/bias_data_19dbs.txt"
+
+  # extract_runs on the full run folders (--version labels as originally used), cmp with the committed CSVs
+  RUNS_PG10=$($PY -c "from lcm_recheck.config import RUNS_PG10_DIR; print(RUNS_PG10_DIR)")
+  RUNS_PG16=$($PY -c "from lcm_recheck.config import RUNS_PG16_DIR; print(RUNS_PG16_DIR)")
+  for v in "results/runs_pg18_explain_fixed pg18_fixed results/pg18_explain_fixed.csv" \
+           "results/runs_pg18_explain pg18_explain results/pg18_explain.csv" \
+           "$RUNS_PG10 pg10_paper results/pg10_paper.csv" \
+           "$RUNS_PG16 pg16_paper results/pg16_paper.csv"; do
+    set -- $v
+    name="extract_runs --version $2 vs $3"
+    need "$name" "$1" "$3" || continue
+    run "$name" "er_$2" $PY scripts/extract_runs.py --runs "$1" --version "$2" --out "$T/er_$2.csv" || continue
+    if cmp -s "$T/er_$2.csv" "$3"; then
+      result IDENTICAL "$name ($(ls "$1"/job_light_*.json | wc -l | tr -d ' ') run files)"
+    else
+      result DIFFERENT "$name" "file: $T/er_$2.csv"
+    fi
+  done
 
   check_stdout "check_downloads stdout" $G/check_downloads.stdout check_downloads $PY scripts/check_downloads.py
   check_stdout "inspect_e1_inputs stdout" $G/inspect_e1_inputs.stdout inspect_e1_inputs $PY scripts/inspect_e1_inputs.py

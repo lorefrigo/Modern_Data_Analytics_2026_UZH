@@ -223,6 +223,11 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
      same commit.
    - CSV outputs (`extract_runs`, prediction CSVs) must be identical. Use `cmp`, or pandas with exact
      comparison for floats that are only re-serialised.
+   - `extract_runs.py` on the full run folders must reproduce the committed CSVs (`cmp`):
+     `results/runs_pg18_explain_fixed` (`--version pg18_fixed`) → `results/pg18_explain_fixed.csv`,
+     `results/runs_pg18_explain` (`pg18_explain`) → `results/pg18_explain.csv`, and, if downloaded, the
+     authors' runs `RUNS_PG10_DIR` (`pg10_paper`) → `results/pg10_paper.csv` and `RUNS_PG16_DIR`
+     (`pg16_paper`) → `results/pg16_paper.csv`.
    - `sigtests` outputs must be identical apart from the header lines; bootstrap intervals, bootstrap
      p-values and the verdicts resting on them may differ only in the option-B commit (see "Statistical
      protocol"). This includes `sigtests.py versions --a results/pg10_paper.csv --b results/pg16_paper.csv`,
