@@ -3,8 +3,13 @@
 Independent of the authors' parser, so it also works for PostgreSQL 18 output and doubles as a
 cross-check of their labels.
 
+With --no_sql the SQL text is replaced by its hash (column sql_sha1, lcm_recheck.hints.sql_hash): use it for runs
+of the authors' pinned SQL whose CSV is committed; scripts re-attach the SQL from the pinned files (hints.attach_sql).
+
 Usage:
   python extract_runs.py --runs DIR_WITH_job_light_*.json --version pg10_paper --out pg10_paper.csv
+  python extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --no_sql \
+         --out results/pg18_explain_fixed.csv
 """
 import argparse
 import glob
@@ -12,6 +17,7 @@ import os
 
 import pandas as pd
 
+from lcm_recheck.hints import sql_hash
 from lcm_recheck.runs import exec_ms, load_run, plan_shape, top_cost
 
 
@@ -20,6 +26,8 @@ def main():
     ap.add_argument("--runs", required=True, help="folder containing job_light_*.json run files")
     ap.add_argument("--version", required=True, help="label, e.g. pg10_paper, pg10_local, pg18_local")
     ap.add_argument("--out", required=True, help="output CSV, one row per candidate plan")
+    ap.add_argument("--no_sql", action="store_true",
+                    help="write the SQL's hash (column sql_sha1) instead of the SQL text")
     a = ap.parse_args()
 
     rows = []
@@ -30,7 +38,8 @@ def main():
             vp, aps = q.get("verbose_plan"), q.get("analyze_plans") or []
             reps = [exec_ms(p) for p in aps]
             rows.append({
-                "version": a.version, "query": query, "plan_idx": i, "sql": q["sql"],
+                "version": a.version, "query": query, "plan_idx": i,
+                **({"sql_sha1": sql_hash(q["sql"])} if a.no_sql else {"sql": q["sql"]}),
                 "timeout": bool(q.get("timeout")),
                 "est_cost": top_cost(vp) if vp else float("nan"),
                 "shape": plan_shape(vp) if vp else None,

@@ -18,6 +18,7 @@ from psycopg2 import errors
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from lcm_recheck.db import add_db_args, connect
+from lcm_recheck.hints import sql_lines
 
 
 def rows(cur, sql):
@@ -51,8 +52,7 @@ def main():
         if os.path.exists(target):
             print(f"job_light_{k}: exists, skipping (delete the file to re-run)")
             continue
-        with open(os.path.join(a.sql_dir, f"job_light_{k}.sql")) as f:
-            sqls = [l.strip() for l in f if l.strip()]
+        sqls = sql_lines(a.sql_dir, f"job_light_{k}")
         start, query_list = time.time(), []
         for i, sql in enumerate(sqls):
             entry = {"sql": sql, "hint": "", "verbose_plan": None, "analyze_plans": [], "timeout": False}

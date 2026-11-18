@@ -90,9 +90,9 @@ uv run python scripts/load_imdb.py --port 5418 --check_only     # row counts, pl
 Q58=($(uv run python -c "from lcm_recheck.config import JOB_LIGHT_IDS; print(*JOB_LIGHT_IDS)"))
 uv run python scripts/fix_hints.py                              # NestedLoop( -> NestLoop( in a copy of the pinned SQL
 uv run python scripts/run_plans.py --explain_only --port 5418 --sql_dir results/sql_pinned_fixed --out_dir results/runs_pg18_explain_fixed --queries "${Q58[@]}"
-uv run python scripts/extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --out results/check/pg18_explain_fixed.csv
-uv run python scripts/make_predcsv.py --label postgres_18 --pg10 results/pg10_paper.csv --costs results/check/pg18_explain_fixed.csv --eval_root lcm-eval/data/evaluation --out_root results/check/predictions
-uv run python scripts/diagnose_hints.py --pg18 results/check/pg18_explain_fixed.csv --port 5418 --eval_root lcm-eval/data/evaluation --extra_root results/check/predictions --out results/check/pg18_hint_status_fixed.csv
+uv run python scripts/extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --no_sql --out results/check/pg18_explain_fixed.csv
+uv run python scripts/make_predcsv.py --label postgres_18 --pg10 results/pg10_paper.csv --costs results/check/pg18_explain_fixed.csv --sql_dir results/sql_pinned_fixed --eval_root lcm-eval/data/evaluation --out_root results/check/predictions
+uv run python scripts/diagnose_hints.py --pg18 results/check/pg18_explain_fixed.csv --sql_dir results/sql_pinned_fixed --port 5418 --eval_root lcm-eval/data/evaluation --extra_root results/check/predictions --out results/check/pg18_hint_status_fixed.csv
 uv run python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --extra_root results/check/predictions --tasks join --out results/check/sigtests_e1.txt
 ```
 
@@ -141,7 +141,8 @@ them. These committed files are derived from the authors' data:
 - `results/pg10_paper.csv`, `results/pg16_paper.csv`: extracted from the authors' PG10 and PG16 run files,
   including their SQL text and runtimes.
 - `results/pg18_explain.csv`, `results/pg18_explain_fixed.csv`, `results/pg18_hint_status*.csv`: our PG18
-  costs and hint diagnosis for the authors' pinned SQL. The explain files include that SQL.
+  costs and hint diagnosis for the authors' pinned SQL. They hold no SQL or hint text, only a hash of each SQL
+  line; the scripts read the SQL from the pinned workload files.
 - `results/predictions/postgres_18*/`: our PG18 costs, with PG10 runtimes from the authors' runs as labels.
 - `results/sigtests_paper.txt`, `results/bias_*.txt`: test results computed from the authors' predictions
   and run files.

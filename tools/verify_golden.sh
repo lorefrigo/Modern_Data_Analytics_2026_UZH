@@ -5,7 +5,9 @@
 #   1. command line: argparse defaults (tools/dump_defaults.py) and --help of every script, against the
 #      scripts and src/ at --base (default HEAD);
 #   2. golden outputs without the database: sigtests paper/versions, bias_models, bias_data, extract_runs on the
-#      full run folders (cmp with the committed CSVs), the stdout of the check_* scripts and of
+#      full run folders (PG18 with --no_sql: cmp with the committed CSVs; the authors' PG10/PG16 runs: cmp with
+#      results/golden/), the committed PG18 files against the golden ones without the authors' SQL and hint text,
+#      the stdout of the check_* scripts and of
 #      tools/check_json_vs_raw.py, make_predcsv CSVs and the committed results/predictions/ against
 #      results/golden/predictions/ (and its stdout against the --base code), fix_hints into a temp folder against
 #      results/sql_pinned_fixed/ (diff -r) and its totals (771 lines in 20 of 58 files);
@@ -153,23 +155,58 @@ if [ "$RUN_NODB" = 1 ]; then
   check_out "bias_data 19 databases" $G/bias_data_19dbs_rerun.txt bias_data_19dbs \
     $PY scripts/bias_data.py --train_runs $dbs19 --out "$T/bias_data_19dbs.txt"
 
-  # extract_runs on the full run folders (--version labels as originally used), cmp with the committed CSVs
+  # extract_runs on the full run folders (--version labels as originally used): our PG18 runs with --no_sql against
+  # the committed CSVs, the authors' PG10/PG16 runs against the golden copies (those CSVs are not committed)
   RUNS_PG10=$($PY -c "from lcm_recheck.config import RUNS_PG10_DIR; print(RUNS_PG10_DIR)")
   RUNS_PG16=$($PY -c "from lcm_recheck.config import RUNS_PG16_DIR; print(RUNS_PG16_DIR)")
-  for v in "results/runs_pg18_explain_fixed pg18_fixed results/pg18_explain_fixed.csv" \
-           "results/runs_pg18_explain pg18_explain results/pg18_explain.csv" \
-           "$RUNS_PG10 pg10_paper results/pg10_paper.csv" \
-           "$RUNS_PG16 pg16_paper results/pg16_paper.csv"; do
+  for v in "results/runs_pg18_explain_fixed pg18_fixed results/pg18_explain_fixed.csv --no_sql" \
+           "results/runs_pg18_explain pg18_explain results/pg18_explain.csv --no_sql" \
+           "$RUNS_PG10 pg10_paper $G/pg10_paper.csv" \
+           "$RUNS_PG16 pg16_paper $G/pg16_paper.csv"; do
     set -- $v
-    name="extract_runs --version $2 vs $3"
+    name="extract_runs --version $2${4:+ $4} vs $3"
     need "$name" "$1" "$3" || continue
-    run "$name" "er_$2" $PY scripts/extract_runs.py --runs "$1" --version "$2" --out "$T/er_$2.csv" || continue
+    run "$name" "er_$2" $PY scripts/extract_runs.py --runs "$1" --version "$2" ${4:+"$4"} --out "$T/er_$2.csv" \
+      || continue
     if cmp -s "$T/er_$2.csv" "$3"; then
       result IDENTICAL "$name ($(ls "$1"/job_light_*.json | wc -l | tr -d ' ') run files)"
     else
       result DIFFERENT "$name" "file: $T/er_$2.csv"
     fi
   done
+
+  # the committed PG18 files are the golden ones without the authors' SQL (replaced by its hash) and hint text
+  if need "committed PG18 files vs golden" $G/pg18_explain.csv $G/pg18_explain_fixed.csv $G/pg18_hint_status.csv \
+       $G/pg18_hint_status_fixed.csv; then
+    if $PY - "$G" > "$T/reduced.txt" 2>&1 <<'PYEOF'
+import io
+import sys
+
+import pandas as pd
+
+from lcm_recheck.hints import sql_hash
+
+G, bad = sys.argv[1], 0
+for name in ["pg18_explain", "pg18_explain_fixed", "pg18_hint_status", "pg18_hint_status_fixed"]:
+    g = pd.read_csv(f"{G}/{name}.csv", dtype=str, keep_default_na=False)
+    with open(f"results/{name}.csv") as f:
+        text = f.read()
+    if "sql" in g:
+        exp = g.assign(sql=g.sql.map(sql_hash)).rename(columns={"sql": "sql_sha1"})
+    else:
+        exp = g[["query", "plan_idx", "dup_plan", "syntax_error", "leading_used", "dump_found"]]
+    b = io.StringIO()
+    exp.to_csv(b, index=False)
+    ok = b.getvalue() == text
+    bad += not ok
+    print(f"{name}: {'identical' if ok else 'DIFFERENT'}")
+sys.exit(bad > 0)
+PYEOF
+    then result IDENTICAL "committed PG18 files vs golden without SQL and hint text (4 files)"
+    else result DIFFERENT "committed PG18 files vs golden without SQL and hint text" \
+      "$(grep -v identical "$T/reduced.txt" | head -1)"
+    fi
+  fi
 
   check_stdout "check_downloads stdout" $G/check_downloads.stdout check_downloads $PY scripts/check_downloads.py
   check_stdout "inspect_e1_inputs stdout" $G/inspect_e1_inputs.stdout inspect_e1_inputs $PY scripts/inspect_e1_inputs.py
@@ -206,12 +243,14 @@ if [ "$RUN_NODB" = 1 ]; then
 
   # make_predcsv into a scratch out_root, and the committed $PRED: both byte-identical to $G/predictions/
   # ($EV is only read, for the Sc. PG10 / Sc. PG16 comparison in stdout)
-  if need "make_predcsv" $EV/postgres $EV/postgres_16 $G/predictions/postgres_18 $G/predictions/postgres_18_asis; then
+  if need "make_predcsv" $EV/postgres $EV/postgres_16 $G/predictions/postgres_18 $G/predictions/postgres_18_asis \
+       results/pg10_paper.csv results/sql_pinned_fixed "$SQL_PINNED"; then
     ok=1
-    for v in "postgres_18 results/pg18_explain_fixed.csv" "postgres_18_asis results/pg18_explain.csv"; do
+    for v in "postgres_18 results/pg18_explain_fixed.csv results/sql_pinned_fixed" \
+             "postgres_18_asis results/pg18_explain.csv $SQL_PINNED"; do
       set -- $v
       if run "make_predcsv --label $1" "mk_new_$1" $PY scripts/make_predcsv.py --label "$1" \
-           --pg10 results/pg10_paper.csv --costs "$2" --eval_root $EV --out_root "$T/pred_new"; then
+           --pg10 results/pg10_paper.csv --costs "$2" --sql_dir "$3" --eval_root $EV --out_root "$T/pred_new"; then
         if diff -r "$T/pred_new/$1" "$G/predictions/$1" > "$T/mk_$1.diff"; then
           result IDENTICAL "make_predcsv CSVs $1 ($(ls "$T/pred_new/$1/imdb/join_order_full" | wc -l | tr -d ' ') files)"
         else
@@ -232,7 +271,8 @@ if [ "$RUN_NODB" = 1 ]; then
       if [ ! -f "$T/base/scripts/make_predcsv.py" ]; then
         result SKIPPED "make_predcsv stdout vs $BASE" "no scripts/make_predcsv.py in $BASE"
       else
-        for v in "postgres_18 results/pg18_explain_fixed.csv" "postgres_18_asis results/pg18_explain.csv"; do
+        # the --base code gets the golden CSVs, which still hold the SQL (code before --sql_dir needs it)
+        for v in "postgres_18 $G/pg18_explain_fixed.csv" "postgres_18_asis $G/pg18_explain.csv"; do
           set -- $v
           $BASE_PY "$T/base/scripts/make_predcsv.py" --label "$1" --pg10 results/pg10_paper.csv --costs "$2" \
             --eval_root $EV --out_root "$T/pred_base" > "$T/mk_base_$1.out" 2> "$T/mk_base_$1.log" || ok=0
@@ -282,9 +322,10 @@ EOF
       check_stdout "load_imdb --check_only (default port)" $G/load_imdb.stdout load_imdb_default \
         $PY scripts/load_imdb.py --check_only
       # the golden stdout prints the --out path used when it was made: /tmp/hint_status_check.csv
-      if need "diagnose_hints" $G/diagnose_hints.stdout results/pg18_hint_status_fixed.csv &&
+      if need "diagnose_hints" $G/diagnose_hints.stdout results/pg18_hint_status_fixed.csv results/sql_pinned_fixed &&
          run "diagnose_hints" diagnose_hints $PY scripts/diagnose_hints.py --pg18 results/pg18_explain_fixed.csv \
-           --port "$PORT" --eval_root "$T/eval" --extra_root "$PRED" --out "$T/hint_status_check.csv"; then
+           --sql_dir results/sql_pinned_fixed --port "$PORT" --eval_root "$T/eval" --extra_root "$PRED" \
+           --out "$T/hint_status_check.csv"; then
         sed "s#$T/hint_status_check.csv#/tmp/hint_status_check.csv#g" "$T/diagnose_hints.out" > "$T/diagnose_hints.new"
         compare "diagnose_hints stdout" diagnose_hints_stdout "$T/diagnose_hints.new" $G/diagnose_hints.stdout
         if cmp -s "$T/hint_status_check.csv" results/pg18_hint_status_fixed.csv; then

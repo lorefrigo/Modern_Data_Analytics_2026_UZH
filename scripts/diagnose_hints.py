@@ -8,6 +8,11 @@ Then relates this to the duplicate plans and to the queries where Sc. PG18 and S
 Usage (from MDA/):
   uv run python scripts/diagnose_hints.py --pg18 results/pg18_explain.csv --port 5418 \
          --eval_root lcm-eval/data/evaluation --out results/pg18_hint_status.csv
+  uv run python scripts/diagnose_hints.py --pg18 results/pg18_explain_fixed.csv --sql_dir results/sql_pinned_fixed \
+         --port 5418 --eval_root lcm-eval/data/evaluation --out results/pg18_hint_status_fixed.csv
+A --pg18 CSV without SQL (extract_runs.py --no_sql) gets it from --sql_dir (hints.attach_sql, checked against its hash).
+The output CSV holds no hint text or SQL (they are the authors'): query, plan_idx, dup_plan, syntax_error
+(pg_hint_plan's message), leading_used, dump_found. The hint text is printed for a few examples only.
 Sc. PG18 is read from --extra_root (default results/predictions) if it has a postgres_18 folder, else from --eval_root.
 """
 import argparse
@@ -24,12 +29,15 @@ from lcm_recheck.config import (
     PG18,
     PORTS,
     PRED_ROOT,
+    SQL_PINNED_DIR,
     model_root,
 )
 from lcm_recheck.db import add_db_args, connect
+from lcm_recheck.hints import attach_sql
 
 DUMP = re.compile(r"\{used hints:(.*?)\}, \{not used hints:(.*?)\}, \{duplicate hints:(.*?)\}, \{error hints:(.*?)\}",
                   re.DOTALL)
+CSV_COLUMNS = ["query", "plan_idx", "dup_plan", "syntax_error", "leading_used", "dump_found"]   # no hint text or SQL
 KW = re.compile(r"([A-Za-z]+)\(")
 
 
@@ -42,6 +50,9 @@ def main():
     ap.add_argument("--pg18", required=True,
                     help="extract_runs.py output of the PG18 explain-only run whose SQL lines are re-planned")
     ap.add_argument("--eval_root", required=True, help="the authors' evaluation folder (predictions downloaded from OSF)")
+    ap.add_argument("--sql_dir", default=SQL_PINNED_DIR,
+                    help="folder with the job_light_<k>.sql the costs were computed on, read if the CSV has no SQL "
+                         "(extract_runs.py --no_sql); results/sql_pinned_fixed for the fixed SQL")
     ap.add_argument("--out", default="results/pg18_hint_status.csv",
                     help="output CSV, one row per SQL line with its hint status")
     ap.add_argument("--extra_root", default=PRED_ROOT,
@@ -49,7 +60,7 @@ def main():
     add_db_args(ap, port=PORTS[PG18])
     a = ap.parse_args()
 
-    df = pd.read_csv(a.pg18).sort_values(["query", "plan_idx"])
+    df = attach_sql(pd.read_csv(a.pg18), a.sql_dir).sort_values(["query", "plan_idx"])
     df["dup"] = df.groupby("query")["shape"].transform(lambda s: s.duplicated(keep=False))
 
     conn = connect(a)
@@ -77,7 +88,7 @@ def main():
     conn.close()
 
     t = pd.DataFrame(rows)
-    t.to_csv(a.out, index=False)
+    t[CSV_COLUMNS].to_csv(a.out, index=False)
     n = len(t)
     print(f"\n{n} lines; debug output found for {t.dump_found.sum()}; written to {a.out}")
     print(f"Leading(...) NOT used: {(~t.leading_used).sum()} lines in {t[~t.leading_used]['query'].nunique()} queries")

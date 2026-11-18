@@ -10,12 +10,14 @@ never changes which plan has the lowest estimate.
 
 Usage (from the repository root):
   uv run python scripts/make_predcsv.py --label postgres_18 --pg10 results/pg10_paper.csv \
-         --costs results/pg18_explain_fixed.csv --eval_root lcm-eval/data/evaluation
+         --costs results/pg18_explain_fixed.csv --sql_dir results/sql_pinned_fixed --eval_root lcm-eval/data/evaluation
   uv run python scripts/make_predcsv.py --label postgres_18_asis --pg10 results/pg10_paper.csv \
          --costs results/pg18_explain.csv --eval_root lcm-eval/data/evaluation
 Writes <out_root>/<label>/imdb/join_order_full/job_light_<k>_0_test_pred.csv (out_root default: results/predictions),
 the layout sigtests.py paper --extra_root reads. eval_root is only read (the authors' Sc. PG10 and Sc. PG16, for the
 comparison printed at the end). An existing label folder is not overwritten unless --overwrite is given.
+A --costs CSV without SQL (extract_runs.py --no_sql) gets it from --sql_dir (hints.attach_sql, checked against its
+hash).
 If --costs comes from the Leading-only SQL instead, the same code yields "all PG10-executed plans" as candidates.
 """
 import argparse
@@ -27,8 +29,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from lcm_recheck.config import JOB_LIGHT_IDS, JOIN_ORDER_FOLDER, PG16, PRED_ROOT, REF
-from lcm_recheck.hints import leading
+from lcm_recheck.config import JOB_LIGHT_IDS, JOIN_ORDER_FOLDER, PG16, PRED_ROOT, REF, SQL_PINNED_DIR
+from lcm_recheck.hints import attach_sql, leading
 
 
 def ref_file(root, model, q):
@@ -42,6 +44,9 @@ def main():
                     help="prediction folder name, e.g. postgres_18 (sigtests.py uses the labels in config.PG_VERSIONS)")
     ap.add_argument("--pg10", required=True, help="extract_runs.py output of the authors' PG10 runs")
     ap.add_argument("--costs", required=True, help="extract_runs.py output of the version's explain-only runs")
+    ap.add_argument("--sql_dir", default=SQL_PINNED_DIR,
+                    help="folder with the job_light_<k>.sql the costs were computed on, read if the CSV has no SQL "
+                         "(extract_runs.py --no_sql); results/sql_pinned_fixed for the fixed SQL")
     ap.add_argument("--eval_root", required=True,
                     help="authors' evaluation root (read only: Sc. PG10 and Sc. PG16 for the comparison)")
     ap.add_argument("--out_root", default=PRED_ROOT, help="output root; files go to <out_root>/<label>/imdb/join_order_full/")
@@ -52,7 +57,7 @@ def main():
     out = os.path.join(os.path.expanduser(a.out_root), a.label, "imdb", JOIN_ORDER_FOLDER)
     if glob.glob(os.path.join(out, "*_test_pred.csv")) and not a.overwrite:
         sys.exit(f"{out} already holds prediction files; pass --overwrite to replace them")
-    pg10, costs = pd.read_csv(a.pg10), pd.read_csv(a.costs)
+    pg10, costs = pd.read_csv(a.pg10), attach_sql(pd.read_csv(a.costs), a.sql_dir)
     pg10["ok"] = ~pg10.timeout & pg10.runtime_s.notna()
     os.makedirs(out, exist_ok=True)
 

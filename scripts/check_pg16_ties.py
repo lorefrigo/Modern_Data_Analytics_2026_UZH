@@ -9,6 +9,7 @@ Rows of the Sc. PG16 / Sc. PG18 files = pinned lines with a PG10 runtime, in pin
 Usage (from MDA/):
   uv run python scripts/check_pg16_ties.py --pg10 results/pg10_paper.csv --pg18 results/pg18_explain.csv \
          --status results/pg18_hint_status.csv --eval_root lcm-eval/data/evaluation
+A --pg18 CSV without SQL (extract_runs.py --no_sql) gets it from --sql_dir (hints.attach_sql, checked against its hash).
 A model is read from --extra_root (default results/predictions) if it has a folder there, else from --eval_root.
 """
 import argparse
@@ -17,8 +18,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from lcm_recheck.config import JOIN_ORDER_FOLDER, PG_VERSIONS, PRED_ROOT, model_root
-from lcm_recheck.hints import leading
+from lcm_recheck.config import JOIN_ORDER_FOLDER, PG_VERSIONS, PRED_ROOT, SQL_PINNED_DIR, model_root
+from lcm_recheck.hints import attach_sql, leading
 
 
 def main():
@@ -27,6 +28,9 @@ def main():
                     help="extract_runs.py output of the authors' PG10 runs (results/pg10_paper.csv)")
     ap.add_argument("--pg18", required=True,
                     help="extract_runs.py output of a PG18 explain-only run on the pinned SQL")
+    ap.add_argument("--sql_dir", default=SQL_PINNED_DIR,
+                    help="folder with the job_light_<k>.sql the costs were computed on, read if the CSV has no SQL "
+                         "(extract_runs.py --no_sql); results/sql_pinned_fixed for the fixed SQL")
     ap.add_argument("--status", required=True,
                     help="diagnose_hints.py output for the same SQL (which lines lost their Leading hint)")
     ap.add_argument("--eval_root", required=True, help="the authors' evaluation folder (predictions downloaded from OSF)")
@@ -36,7 +40,7 @@ def main():
                     help="generated prediction folders (make_predcsv.py); used for a model that has a folder here")
     a = ap.parse_args()
 
-    pg10, pg18 = pd.read_csv(a.pg10), pd.read_csv(a.pg18)
+    pg10, pg18 = pd.read_csv(a.pg10), attach_sql(pd.read_csv(a.pg18), a.sql_dir)
     pg10["ok"] = ~pg10.timeout & pg10.runtime_s.notna()
     status = pd.read_csv(a.status)[["query", "plan_idx", "leading_used"]]
     pg18 = pg18.merge(status, on=["query", "plan_idx"])
