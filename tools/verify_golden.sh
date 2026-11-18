@@ -8,7 +8,7 @@
 #      full run folders (PG18 with --no_sql: cmp with the committed CSVs; the authors' PG10/PG16 runs: cmp with
 #      results/golden/), the committed PG18 files against the golden ones without the authors' SQL and hint text,
 #      the stdout of the check_* scripts and of
-#      tools/check_json_vs_raw.py, make_predcsv CSVs and the committed results/predictions/ against
+#      tools/check_json_vs_raw.py, make_predcsv CSVs and the local results/predictions/ against
 #      results/golden/predictions/ (and its stdout against the --base code), fix_hints into a temp folder against
 #      results/sql_pinned_fixed/ (diff -r) and its totals (771 lines in 20 of 58 files);
 #   3. database checks (read-only, no EXPLAIN ANALYZE): run_plans --explain_only est_cost, load_imdb
@@ -134,6 +134,10 @@ if [ "$RUN_NODB" = 1 ]; then
   check_out "sigtests paper (all tasks)" $G/sigtests_paper_all.txt sigtests_paper \
     $PY scripts/sigtests.py paper --eval_root "$T/eval" --retrain_root "$RETRAIN" --extra_root "$PRED" \
     --out "$T/sigtests_paper.txt"
+  # the README quick start: no generated predictions; reference is the committed quick output
+  check_out "sigtests paper --extra_root \"\" vs results/sigtests_paper_quick.txt" results/sigtests_paper_quick.txt \
+    sigtests_quick $PY scripts/sigtests.py paper --eval_root "$T/eval" --retrain_root "$RETRAIN" --extra_root "" \
+    --out "$T/sigtests_quick.txt"
   check_out "sigtests versions" $G/sigtests_versions.txt sigtests_versions \
     $PY scripts/sigtests.py versions --a results/pg10_paper.csv --b results/pg16_paper.csv --out "$T/sigtests_versions.txt"
   check_out "sigtests versions --timeout_penalty 30" $G/sigtests_versions_penalty.txt sigtests_versions_penalty \
@@ -259,11 +263,11 @@ PYEOF
       else
         ok=0
       fi
-      if need "committed $PRED/$1 vs golden" "$PRED/$1"; then
-        if diff -r "$PRED/$1" "$G/predictions/$1" > "$T/committed_$1.diff"; then
-          result IDENTICAL "committed $PRED/$1 vs golden ($(ls "$PRED/$1/imdb/join_order_full" | wc -l | tr -d ' ') files)"
+      if need "local $PRED/$1 vs golden" "$PRED/$1"; then
+        if diff -r "$PRED/$1" "$G/predictions/$1" > "$T/local_$1.diff"; then
+          result IDENTICAL "local $PRED/$1 vs golden ($(ls "$PRED/$1/imdb/join_order_full" | wc -l | tr -d ' ') files)"
         else
-          result DIFFERENT "committed $PRED/$1 vs golden" "diff: $T/committed_$1.diff"
+          result DIFFERENT "local $PRED/$1 vs golden" "diff: $T/local_$1.diff"
         fi
       fi
     done

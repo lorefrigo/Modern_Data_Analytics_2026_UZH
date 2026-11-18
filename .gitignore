@@ -6,6 +6,10 @@ results/runs_*/
 results/sql_*/
 results/golden/
 results/check/
+# The authors' row-level data, regenerated from OSF (README "Full reproduction"); never commit
+results/pg10_paper.csv
+results/pg16_paper.csv
+results/predictions/
 # Python / uv
 .venv/
 __pycache__/

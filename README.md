@@ -42,11 +42,11 @@ The full outputs are in `results/sigtests_paper.txt`, `results/bias_data_imdb.tx
 |---|---|
 | `scripts/` | Command-line scripts (`uv run python scripts/<name>.py --help`) |
 | `src/lcm_recheck/` | The package: configuration, run-file parsing, statistics, the tests in `tasks/` |
-| `results/` | Committed outputs: test results, extracted runtimes and costs, generated prediction files |
-| `tests/` | Unit tests on small fixtures (no real data, no database needed) |
+| `results/` | Committed outputs: test results and our PG18 measurements (none of the authors' row-level data, see "Data and license") |
+| `tests/` | Unit tests on small invented fixtures (no real data, no database needed) |
 | `tools/` | Maintainer tools for regression checks |
 
-## Quick start (no database)
+## Quick start (no database, 40 MB)
 
 You need [uv](https://docs.astral.sh/uv/) and git.
 
@@ -63,9 +63,9 @@ Then rerun the significance tests (47 s in our test) and bias Tests 2 and 3a (2 
 results with the committed files; only the header lines starting with `#` should differ:
 
 ```bash
-uv run python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --out results/check/sigtests_paper.txt
+uv run python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --extra_root "" --out results/check/sigtests_paper_quick.txt
 uv run python scripts/bias_models.py --eval_root lcm-eval/data/evaluation --out results/check/bias_models.txt
-diff <(grep -v '^#' results/sigtests_paper.txt) <(grep -v '^#' results/check/sigtests_paper.txt)
+diff <(grep -v '^#' results/sigtests_paper_quick.txt) <(grep -v '^#' results/check/sigtests_paper_quick.txt)
 diff <(grep -v '^#' results/bias_models.txt) <(grep -v '^#' results/check/bias_models.txt)
 ```
 
@@ -73,22 +73,56 @@ diff <(grep -v '^#' results/bias_models.txt) <(grep -v '^#' results/check/bias_m
 test. The fine-tuned predictions of Fig. 14 (bias Test 3a) are not in `evaluation.zip`. Without them, both
 scripts skip that part, as the committed outputs do.
 
-## Full E1 reproduction (PostgreSQL 18)
+`--extra_root ""` leaves out our PG18 prediction files (Sc. PG18). They are built from the authors' PG10
+runtimes, so they are not in the repository; the full reproduction below regenerates them. The quick
+reference `results/sigtests_paper_quick.txt` therefore differs from the full run, `results/sigtests_paper.txt`,
+in Task 1 only:
+- `postgres_18` is missing from the list of models, from the warning about differing candidate sets and from
+  both tables of total runtimes, and its row in the family "PG version vs PG10" is missing;
+- in that family Sc. PG16 is the only member instead of one of two. Its family-wise interval is corrected
+  for one comparison instead of two (Bonferroni: 5% divided by the number of members), so it is the plain
+  95% interval, 20.66 to 75.491 s instead of 18.134 to 80.473 s. The resampled queries, the estimate
+  (44.97 s), the Wilcoxon test and the verdict are unchanged.
 
-Requirements:
+All other results, including the 9 of 77 LCM-vs-PostgreSQL 10 comparisons, are identical.
+
+## Full reproduction (no database)
+
+This regenerates the files that hold the authors' row-level data and are therefore not committed: the PG10
+and PG16 runtimes (`results/pg10_paper.csv`, `results/pg16_paper.csv`), the fixed copy of the pinned SQL
+(`results/sql_pinned_fixed/`) and the Sc. PG18 prediction files (`results/predictions/`). These paths are
+gitignored. After the quick start, it downloads `runs.zip` (1.39 GB) and `workloads.zip` (0.32 GB) and
+unpacks only the 186 files it needs (0.25 GB). The zips are kept in `lcm-eval/data/`.
+
+```bash
+uv run python scripts/osf_fetch.py --any runs.zip --any workloads.zip --extract runs/raw/imdb/join_order_full/ runs/raw/imdb/join_order_full_v16/ workloads/evaluation/imdb/join_order_full_pg_10_hinted/
+uv run python scripts/extract_runs.py --runs lcm-eval/data/runs/raw/imdb/join_order_full --version pg10_paper --out results/pg10_paper.csv
+uv run python scripts/extract_runs.py --runs lcm-eval/data/runs/raw/imdb/join_order_full_v16 --version pg16_paper --out results/pg16_paper.csv
+uv run python scripts/fix_hints.py                              # NestedLoop( -> NestLoop( in a copy of the pinned SQL
+uv run python scripts/make_predcsv.py --label postgres_18 --pg10 results/pg10_paper.csv --costs results/pg18_explain_fixed.csv --sql_dir results/sql_pinned_fixed --eval_root lcm-eval/data/evaluation
+uv run python scripts/make_predcsv.py --label postgres_18_asis --pg10 results/pg10_paper.csv --costs results/pg18_explain.csv --eval_root lcm-eval/data/evaluation
+uv run python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --out results/check/sigtests_paper.txt
+diff <(grep -v '^#' results/sigtests_paper.txt) <(grep -v '^#' results/check/sigtests_paper.txt)
+```
+
+`make_predcsv.py` reads our PG18 costs from the committed `results/pg18_explain*.csv` and the SQL from the
+pinned files (checked against a hash of each line). It prints the totals of the plans PG18 selects: 562.9 s
+on the fixed SQL and 630.2 s on the unfixed SQL.
+
+## E1 with PostgreSQL 18
+
+This recomputes our PG18 costs. It needs the full reproduction above first, and:
 - PostgreSQL 18 (we used Postgres.app on macOS), with pg_hint_plan 1.8.0 in `shared_preload_libraries`, on
   port 5418.
 - Planner settings `effective_cache_size = 10GB`, `geqo = off`, `enable_memoize = off` and `jit = off`;
   other planner settings at their defaults. `load_imdb.py --check_only` checks all of them.
-- From OSF: `runs.zip` (PG10 runtimes, 1.4 GB), `workloads.zip` (pinned SQL, 0.3 GB) and `datasets.zip`
-  (IMDB, 2.7 GB).
+- From OSF, `datasets.zip` (2.7 GB), of which only the IMDB part (`datasets/imdb.zip`, 1.26 GB) is unpacked.
 
 ```bash
-uv run python scripts/osf_fetch.py --any runs.zip --any workloads.zip --any datasets.zip
+uv run python scripts/osf_fetch.py --any datasets.zip --extract datasets/imdb.zip
 uv run python scripts/load_imdb.py --port 5418                  # create and load the database imdb
 uv run python scripts/load_imdb.py --port 5418 --check_only     # row counts, planner settings, hints
 Q58=($(uv run python -c "from lcm_recheck.config import JOB_LIGHT_IDS; print(*JOB_LIGHT_IDS)"))
-uv run python scripts/fix_hints.py                              # NestedLoop( -> NestLoop( in a copy of the pinned SQL
 uv run python scripts/run_plans.py --explain_only --port 5418 --sql_dir results/sql_pinned_fixed --out_dir results/runs_pg18_explain_fixed --queries "${Q58[@]}"
 uv run python scripts/extract_runs.py --runs results/runs_pg18_explain_fixed --version pg18_fixed --no_sql --out results/check/pg18_explain_fixed.csv
 uv run python scripts/make_predcsv.py --label postgres_18 --pg10 results/pg10_paper.csv --costs results/check/pg18_explain_fixed.csv --sql_dir results/sql_pinned_fixed --eval_root lcm-eval/data/evaluation --out_root results/check/predictions
@@ -100,20 +134,21 @@ uv run python scripts/sigtests.py paper --eval_root lcm-eval/data/evaluation --e
 our tests on a laptop. The other steps after loading took 1-7 s each and `sigtests.py --tasks join` 14 s.
 The full load of the database was not timed.
 
-Each output can be compared with its committed counterpart, for example
+Each output can be compared with its counterpart, for example
 `cmp results/check/pg18_explain_fixed.csv results/pg18_explain_fixed.csv` and
 `diff -r results/check/predictions/postgres_18 results/predictions/postgres_18`.
 
-For the unfixed SQL (`postgres_18_asis`), extracting the PG10 runtimes yourself, and the E2 design, see
-`AGENTS.md`.
+For the unfixed SQL (`postgres_18_asis`) and the E2 design, see `AGENTS.md`.
 
 ## Bias Test 1: the training data
 
-`bias_data.py` reads the authors' raw training run files from `runs.zip`. These are
-`runs/raw/<database>/workload_100k_s1_c8220.json` for the 20 training databases, plus the IMDB index-scan
-and sequential-scan retraining runs.
+`bias_data.py` reads the authors' raw training run files from `runs.zip`: the files
+`runs/raw/<database>/workload_100k_s1_c8220.json` of the 20 training databases, plus the IMDB index-scan
+and sequential-scan retraining runs. These 22 files are 2.45 GB unpacked; `osf_fetch.py` reuses `runs.zip`
+if it is already there.
 
 ```bash
+uv run python scripts/osf_fetch.py --any runs.zip --extract runs/raw/{accidents,airline,baseball,basketball,carcinogenesis,consumer,credit,employee,fhnk,financial,geneea,genome,hepatitis,imdb,movielens,seznam,ssb,tournament,tpc_h_pk,walmart}/workload_100k_s1_c8220.json runs/raw/imdb/index_retraining/ runs/raw/imdb/seq_retraining/
 R=lcm-eval/data/runs/raw
 uv run python scripts/bias_data.py --imdb_train_runs $R/imdb/workload_100k_s1_c8220.json --ref_index_runs $R/imdb/index_retraining/index_retraining.json --ref_seq_runs $R/imdb/seq_retraining/seq_retraining.json --out results/check/bias_data_imdb.txt
 uv run python scripts/bias_data.py --train_runs $R/{accidents,airline,baseball,basketball,carcinogenesis,consumer,credit,employee,fhnk,financial,geneea,genome,hepatitis,movielens,seznam,ssb,tournament,tpc_h_pk,walmart}/workload_100k_s1_c8220.json --out results/check/bias_data_19dbs.txt
@@ -137,15 +172,14 @@ uv run ruff check .
 
 The authors' code ([lcm-eval](https://github.com/DataManagementLab/lcm-eval), Apache License 2.0) and their
 data ([OSF project rb5tn](https://osf.io/rb5tn/)) are not redistributed here; the commands above download
-them. These committed files are derived from the authors' data:
-- `results/pg10_paper.csv`, `results/pg16_paper.csv`: extracted from the authors' PG10 and PG16 run files,
-  including their SQL text and runtimes.
+them. The OSF project states no license, so this repository contains none of the authors' data at row
+level: no runtimes, costs, SQL or hint text from their runs and workloads, and no files built from them.
+The commands above regenerate such files at gitignored paths. The committed results are:
 - `results/pg18_explain.csv`, `results/pg18_explain_fixed.csv`, `results/pg18_hint_status*.csv`: our PG18
   costs and hint diagnosis for the authors' pinned SQL. They hold no SQL or hint text, only a hash of each SQL
   line; the scripts read the SQL from the pinned workload files.
-- `results/predictions/postgres_18*/`: our PG18 costs, with PG10 runtimes from the authors' runs as labels.
-- `results/sigtests_paper.txt`, `results/bias_*.txt`: test results computed from the authors' predictions
-  and run files.
+- `results/sigtests_paper.txt`, `results/sigtests_paper_quick.txt`, `results/bias_*.txt`: aggregate test
+  results computed from the authors' predictions and run files.
 - `results/osf_listing.tsv`: the file names and sizes of the OSF project.
 
 This repository's own code is licensed under the Apache License 2.0 (see `LICENSE`).

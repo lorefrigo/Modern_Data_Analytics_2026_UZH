@@ -58,7 +58,7 @@ All commands run from the repository root.
 
 | File | Purpose |
 |---|---|
-| `README.md` | For readers: summary, key findings, quick start without a database, full E1 and bias Test 1 commands (all tested in a fresh clone) |
+| `README.md` | For readers: summary, key findings, quick start without a database (without Sc. PG18), full reproduction without a database (regenerates the gitignored files below from OSF), E1 with PG18 and bias Test 1 commands |
 | `LICENSE` | Apache License 2.0 for this repository's own code |
 | `src/lcm_recheck/config.py` | Single source of constants: paths, PostgreSQL defaults, model lists, the 58 JOB-light ids, workload lists, `B`, seeds, folder names, `PRED_ROOT` (`results/predictions`), `default_retrain_root()`, `model_root()` (a model's predictions come from `extra_root` if it has a folder there, else from `eval_root`), `shadowed_models()` |
 | `src/lcm_recheck/db.py` | Shared connection arguments (`add_db_args()`: `--host --port --user --password --db`) and `connect()` |
@@ -96,12 +96,13 @@ All commands run from the repository root.
 | `scripts/sigtests.py` | All significance tests; subcommands `paper` and `versions` (CLI; the tests are in `tasks/`). `paper --extra_root` (default `results/predictions`): Task 1 reads a model from there if it has a folder there (a copy in `--eval_root` is then ignored, with a note on stderr) |
 | `scripts/bias_data.py` | Training-data bias, Test 1 (and the Test 3a leakage check), from raw training run files; streams them via `runs.load_run` (ijson) (CLI; the tests are in `tasks/bias_data.py`) |
 | `scripts/bias_models.py` | Training-data bias, Tests 2 and 3a, from the access-path predictions (CLI; the tests are in `tasks/bias_models.py`) |
-| `results/pg10_paper.csv` | `extract_runs.py` output for the authors' PG10 runs (E1 labels) |
-| `results/pg16_paper.csv` | `extract_runs.py` output for the authors' PG16 runs (`--version pg16_paper`); input to `check_pg16_labels.py` |
+| `results/pg10_paper.csv` | `extract_runs.py` output for the authors' PG10 runs (E1 labels); **gitignored**, regenerated (README "Full reproduction") |
+| `results/pg16_paper.csv` | `extract_runs.py` output for the authors' PG16 runs (`--version pg16_paper`); input to `check_pg16_labels.py`; **gitignored**, regenerated |
 | `results/pg18_explain.csv`, `results/pg18_explain_fixed.csv` | PG18 costs on the original and the fixed pinned SQL (`extract_runs.py --no_sql`: no SQL, only `sql_sha1`) |
 | `results/pg18_hint_status.csv`, `results/pg18_hint_status_fixed.csv` | `diagnose_hints.py` output for both variants (no hint text or SQL) |
-| `results/predictions/postgres_18/`, `results/predictions/postgres_18_asis/` | `make_predcsv.py` output (Sc. PG18 on the fixed and on the original pinned SQL), same layout as an eval root; committed |
+| `results/predictions/postgres_18/`, `results/predictions/postgres_18_asis/` | `make_predcsv.py` output (Sc. PG18 on the fixed and on the original pinned SQL), same layout as an eval root; labels are the authors' PG10 runtimes, so **gitignored**, regenerated |
 | `results/sigtests_paper.txt` | `sigtests.py paper` output, all tasks |
+| `results/sigtests_paper_quick.txt` | `sigtests.py paper --extra_root ""` (no generated predictions, so no Sc. PG18): the README quick-start reference. Differs from `sigtests_paper.txt` only in Task 1: no `postgres_18`, and the Sc. PG16 family-wise interval is for a family of one |
 | `results/bias_data_imdb.txt` | `bias_data.py` on IMDB with the retraining queries (Tests 1a-1e, leakage check) |
 | `results/bias_data_19dbs.txt` | `bias_data.py` on the 19 other training databases (1a, 1b, 1d, 1e) |
 | `results/bias_models.txt` | `bias_models.py` output (Tests 2 and 3a) |
@@ -109,7 +110,7 @@ All commands run from the repository root.
 | `results/lcm-eval-commit.txt` | The pinned `lcm-eval` commit hash |
 | `results/runs_*/` | Raw run files (gitignored) |
 | `results/sql_pinned_fixed/` | Pinned SQL with `NestedLoop(` replaced by `NestLoop(`, written by `fix_hints.py` (gitignored, regenerable) |
-| `results/golden/` | Local regression reference, see "Verification" (gitignored): copies of the committed CSVs and `sigtests_paper.txt`, plus `sigtests_paper_all.txt`, `bias_models_rerun.txt`, `rerun_pg18_explain_fixed.csv`, `check_json_vs_raw.stdout` and `predictions/postgres_18{,_asis}/` |
+| `results/golden/` | Local regression reference, see "Verification" (gitignored): copies of the CSVs as committed before the data removal (`pg10_paper.csv`, `pg16_paper.csv`, the PG18 files with SQL and hint text) and `sigtests_paper.txt`, plus `sigtests_paper_all.txt`, `bias_models_rerun.txt`, `rerun_pg18_explain_fixed.csv`, `check_json_vs_raw.stdout` and `predictions/postgres_18{,_asis}/` |
 
 Known problems to fix:
 
@@ -133,8 +134,8 @@ that list (`"${Q58[@]}"` works in bash and zsh).
 
 ```bash
 Q58=($(uv run python -c "from lcm_recheck.config import JOB_LIGHT_IDS; print(*JOB_LIGHT_IDS)"))
-# PG10 runtimes from the authors' raw runs (check_downloads.py prints the exact --runs path)
-uv run python scripts/extract_runs.py --runs <authors' PG10 run folder> --version pg10_paper --out results/pg10_paper.csv
+# PG10 runtimes from the authors' raw runs (gitignored output; README "Full reproduction" has the osf_fetch.py call)
+uv run python scripts/extract_runs.py --runs lcm-eval/data/runs/raw/imdb/join_order_full --version pg10_paper --out results/pg10_paper.csv
 # fixed copy of the pinned SQL
 uv run python scripts/fix_hints.py   # 771 lines in 20 queries; --overwrite to replace an existing results/sql_pinned_fixed
 # PG18 costs (explain only, 3-4 s for the 58 queries in the README's fresh-clone test)
@@ -259,7 +260,7 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
      same commit.
    - CSV outputs (`extract_runs`, prediction CSVs) must be identical. Use `cmp`, or pandas with exact
      comparison for floats that are only re-serialised.
-   - `make_predcsv.py` (both labels, into a temp `--out_root`) and the committed `results/predictions/<label>/`
+   - `make_predcsv.py` (both labels, into a temp `--out_root`) and the local (gitignored) `results/predictions/<label>/`
      must be byte-identical to `results/golden/predictions/<label>/` (`diff -r`).
    - `fix_hints.py` (default `--sql_dir`, into a temp `--out_dir`) must be byte-identical to
      `results/sql_pinned_fixed/` (`diff -r`, 58 files), and its last line must report 771 lines changed in 20 of
@@ -277,6 +278,8 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
    - The four committed PG18 files must equal their golden copies without the authors' SQL (replaced by
      `sql_sha1`) and without the hint-text columns (`error_near`, `used`, `not_used`, `duplicate_hints`,
      `error_hints`).
+   - `sigtests.py paper --extra_root ""` (the README quick start, no generated predictions) must match the
+     committed `results/sigtests_paper_quick.txt` apart from the header lines.
    - `sigtests` outputs must be identical apart from the header lines; bootstrap intervals, bootstrap
      p-values and the verdicts resting on them may differ only in the option-B commit (see "Statistical
      protocol"). This includes `sigtests.py versions --a results/pg10_paper.csv --b results/pg16_paper.csv`,
@@ -342,10 +345,17 @@ Scripts stay thin CLIs in `scripts/`; logic lives in `src/lcm_recheck/`.
 - Every script starts with a docstring: what it does, then a usage example.
 - New code uses type hints and passes `ruff`.
 - Never commit `lcm-eval/`, downloaded data, raw run files or `results/golden/`.
+- Never commit the authors' data at row level: the OSF project has no license. That means runtimes, costs, SQL or
+  hint text from their runs and workloads, and files built from them (e.g. prediction CSVs with their runtimes as
+  labels). Such files are regenerated at gitignored paths (`results/pg10_paper.csv`, `results/pg16_paper.csv`,
+  `results/predictions/`, `results/sql_pinned_fixed/`). Our own runs on their SQL are committed with
+  `extract_runs.py --no_sql`; scripts read the SQL from the pinned files (`hints.attach_sql`). Test fixtures are
+  invented, never copied from their data. They were removed from the whole history before publication.
 - When a command changes, update `README.md` and this file in the same commit.
 
 ## Ask the human first before
 
+- committing any file with the authors' data at row level (see "Conventions"), or un-ignoring one;
 - deleting or overwriting anything in `results/` or `lcm-eval/data/`;
 - changing the statistical protocol;
 - running anything that executes plans (`EXPLAIN ANALYZE`);
