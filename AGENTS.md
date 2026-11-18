@@ -74,13 +74,14 @@ All commands run from the repository root.
 | `tests/test_db.py` | `db.py` argument defaults and `connect()`; one `db`-marked test against port 5418 |
 | `tests/test_hints.py`, `tests/test_report.py`, `tests/test_runs.py`, `tests/test_stats.py` | Unit tests of the package helpers (no data, no database); `test_stats.py` also pins the family seeding (`[0, crc32(family_id)]`) and how `boot()`/`boot_fast()` apply the index matrix |
 | `tests/test_extract_runs.py` | `extract_runs.py` on an invented run file: the `sql` column, or only `sql_sha1` with `--no_sql` |
+| `tests/test_osf_fetch.py` | `osf_fetch.py --extract` on invented zips (OSF replaced by a fake): only matching members, no `__MACOSX/`, zip kept, no second download, nested zips unpacked |
 | `tests/test_fix_hints.py` | `fix_hints.py` on a tiny SQL folder in `tmp_path`: byte-exact copies, the printed counts, no overwrite without `--overwrite` |
 | `tests/test_tasks.py` | Wiring of `tasks/`: no module-level generator anywhere; which family ids `compare()`, `compare_pick()`, `physical_family()`, `versions()` and `bias_models.test2()` use; members of a family share one matrix; no dependence on call order; `SUMMARY` order |
 | `tests/test_scripts.py` | Every script only defines things on import (nothing runs or prints) and has a `main()` |
 | `tools/verify_golden.sh` | Runs every regression check of "Verification" against `results/golden/`; one line per check |
 | `tools/dump_defaults.py` | Prints the argparse defaults of a script without running it (used by `verify_golden.sh`) |
 | `tools/check_json_vs_raw.py` | Real-data check of `runs.py`: the authors' PG10 JOB-light runs in JSON mode (`runs/json`, read from `lcm-eval/data/runs.zip` in memory) vs raw mode; `top_cost` and the `plan_shape` grouping must agree (used by `verify_golden.sh`) |
-| `scripts/osf_fetch.py` | List or selectively download OSF files (shows sizes first) |
+| `scripts/osf_fetch.py` | List or selectively download OSF files (shows sizes first); a zip is unpacked completely, or with `--extract <prefix> ...` (one or more prefixes, repeatable) kept and only the members under the prefixes unpacked, an unpacked nested zip (e.g. `datasets/imdb.zip` in `datasets.zip`) in turn (an existing zip is not downloaded again) |
 | `scripts/check_downloads.py` | Report which prediction files are present; constants from `config.py` |
 | `scripts/load_imdb.py` | Create and load `imdb`; check row counts, planner settings and that hints work |
 | `scripts/run_plans.py` | EXPLAIN (and optionally EXPLAIN ANALYZE) candidate plans; writes the authors' run-file format; resumable |
