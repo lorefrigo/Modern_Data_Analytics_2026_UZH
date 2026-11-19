@@ -59,7 +59,7 @@ uv run python scripts/osf_fetch.py --match evaluation.zip   # the authors' predi
 uv run python scripts/check_downloads.py                     # which prediction files are present
 ```
 
-Then rerun the significance tests (47 s in our test) and bias Tests 2 and 3a (2 s). Compare the
+Then rerun the significance tests (23 s in our test) and bias Tests 2 and 3a (2 s). Compare the
 results with the committed files; only the header lines starting with `#` should differ:
 
 ```bash
@@ -69,7 +69,7 @@ diff <(grep -v '^#' results/sigtests_paper_quick.txt) <(grep -v '^#' results/che
 diff <(grep -v '^#' results/bias_models.txt) <(grep -v '^#' results/check/bias_models.txt)
 ```
 
-`osf_fetch.py` shows the size and asks before downloading; listing, download and unzipping took 15 s in our
+`osf_fetch.py` shows the size and asks before downloading; listing, download and unzipping took 24 s in our
 test. The fine-tuned predictions of Fig. 14 (bias Test 3a) are not in `evaluation.zip`. Without them, both
 scripts skip that part, as the committed outputs do.
 
@@ -92,7 +92,9 @@ This regenerates the files that hold the authors' row-level data and are therefo
 and PG16 runtimes (`results/pg10_paper.csv`, `results/pg16_paper.csv`), the fixed copy of the pinned SQL
 (`results/sql_pinned_fixed/`) and the Sc. PG18 prediction files (`results/predictions/`). These paths are
 gitignored. After the quick start, it downloads `runs.zip` (1.39 GB) and `workloads.zip` (0.32 GB) and
-unpacks only the 186 files it needs (0.25 GB). The zips are kept in `lcm-eval/data/`.
+unpacks only the 186 files it needs (0.25 GB). The zips are kept in `lcm-eval/data/`. In our test the
+download and extraction took 5.2 minutes (about 5.5 MB/s; this depends on your connection), each other step
+1-3 s and `sigtests.py paper` 23 s. The clone then took 2.4 GB of disk, including the zips and `.venv`.
 
 ```bash
 uv run python scripts/osf_fetch.py --any runs.zip --any workloads.zip --extract runs/raw/imdb/join_order_full/ runs/raw/imdb/join_order_full_v16/ workloads/evaluation/imdb/join_order_full_pg_10_hinted/

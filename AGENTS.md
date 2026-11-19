@@ -183,9 +183,9 @@ Ask the human before changing anything in this section.
 
 ## Refactoring plan (done)
 
-All ten steps are done, one commit per step, each verified as in "Verification": step 1 `322a59b`,
-2 `255460f`, 3 `80a668a`, 4 `de82886`, 5 `c40e70d`, 6 `1d665ea` (results regenerated in `9443eca`),
-7 `0e3aa75`, 8 `64f8bd8`, 9 `7d73242`, 10 `355b1d5`, `e23ae00` and `0ce1174`. The list below records what
+All ten steps are done, one commit per step, each verified as in "Verification": step 1 `2f81761`,
+2 `62ece48`, 3 `22b4db8`, 4 `834d7e5`, 5 `44759b2`, 6 `108d168` (results regenerated in `bfec3d9`),
+7 `91da18e`, 8 `eb25948`, 9 `bc6a3ed`, 10 `d896427`, `eb162a7` and `cb96c52`. The list below records what
 each step did. Later changes follow the same rules: one change per commit, verified before the next one.
 
 1. `src/lcm_recheck/config.py`: the single source for paths, default ports, the 58 JOB-light ids, the model
